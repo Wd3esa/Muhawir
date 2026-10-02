@@ -13,8 +13,11 @@ are never shown as the quoted text.
 Optional: a tafsir book dump (tafsir-book-<id>.json.gz). Its text is cut into
 paragraph-sized passages; HTML markup is removed, the wording is not changed.
 
+Optional: a reasons-of-revelation book dump (asbab-book-<id>.json.gz). It has
+the same layout as a tafsir dump and is imported the same way, as kind "asbab".
+
 Usage: python -m muhawir.quranpedia mushafs-1.json.gz [--topics topics.json.gz]
-       [--tafsir tafsir-book-3.json.gz] -o data/quran_corpus.json
+       [--tafsir tafsir-book-4.json.gz] [--asbab asbab-book-460.json.gz] -o data/quran_corpus.json
 """
 from __future__ import annotations
 
@@ -83,18 +86,23 @@ def chunk(paragraphs: list[str], limit: int = MAX_CHUNK) -> list[str]:
     return chunks
 
 
+ASBAB_NOTE = "يجمع روايات أسباب النزول الواردة في الكتب التسعة، ومعها دراسة المؤلف لها"
+
+
 def build_tafsir(tafsir_dump: dict, surah_names: dict[int, str],
-                 keywords: dict[str, str]) -> tuple[dict, list[dict]]:
-    """Source record and passages for one Quranpedia tafsir book dump."""
+                 keywords: dict[str, str], kind: str = "tafsir", note: str = "") -> tuple[dict, list[dict]]:
+    """Source record and passages for one Quranpedia book dump keyed by ayah (tafsir or asbab)."""
     book, version = tafsir_dump.get("book", {}), tafsir_dump.get("license", {}).get("version", "")
     if not book.get("id") or not version:
-        raise ImportError_("tafsir dump has no book id or licence version")
-    source_id = f"quranpedia-tafsir-{book['id']}"
+        raise ImportError_(f"{kind} dump has no book id or licence version")
+    source_id = f"quranpedia-{kind}-{book['id']}"
+    prefix = "t" if kind == "tafsir" else "a"
     author = (book.get("author") or {}).get("ar_name", "")
     edition = "، ".join(x for x in (book.get("nasher"), book.get("edition"),
                                    f"تحقيق {book['mohaqeq']}" if book.get("mohaqeq") else "") if x)
     source = {"id": source_id, "name": f"{book.get('short_name') or book.get('name')}",
               "about": f"«{book.get('name')}»، تأليف {author}" + (f" ({edition})" if edition else "")
+                       + (f"، {note}" if note else "")
                        + f"، من بيانات الموسوعة القرآنية quranpedia.net (نسخة {version}).",
               "url": "https://quranpedia.net"}
 
@@ -119,15 +127,15 @@ def build_tafsir(tafsir_dump: dict, surah_names: dict[int, str],
         kw = "؛ ".join(dict.fromkeys(k for a in sorted(set(g["ayahs"]))
                                      for k in keywords.get(f"{g['surah']}:{a}", "").split("؛ ") if k))
         for i, piece in enumerate(chunk(clean_html(text)), 1):
-            passages.append({"id": f"t{book['id']}:{g['surah']}:{first}:{n}:{i}",
-                             "source_id": source_id, "location": where, "kind": "tafsir",
+            passages.append({"id": f"{prefix}{book['id']}:{g['surah']}:{first}:{n}:{i}",
+                             "source_id": source_id, "location": where, "kind": kind,
                              "text": piece, "keywords": kw})
     return source, passages
 
 
 def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
                  expected_ayahs: int = EXPECTED_AYAHS, topics_dump: dict | None = None,
-                 tafsir_dump: dict | None = None) -> dict:
+                 tafsir_dump: dict | None = None, asbab_dump: dict | None = None) -> dict:
     data, licence = dump.get("data", {}), dump.get("license", {})
     version = licence.get("version", "")
     if data.get("id") != HAFS_MUSHAF_ID:
@@ -164,20 +172,26 @@ def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
                  f"quranpedia.net (نسخة {version}).",
         "url": "https://quranpedia.net",
     }]
-    tafsir_version = ""
+    names = {int(s["id"]): s["name"] for s in surahs}
+    tafsir_version = asbab_version = ""
     if tafsir_dump:
-        names = {int(s["id"]): s["name"] for s in surahs}
         tafsir_source, tafsir_passages = build_tafsir(tafsir_dump, names, keywords)
         sources.append(tafsir_source)
         passages.extend(tafsir_passages)
         tafsir_version = tafsir_dump["license"]["version"]
+    if asbab_dump:
+        asbab_source, asbab_passages = build_tafsir(asbab_dump, names, keywords,
+                                                    kind="asbab", note=ASBAB_NOTE)
+        sources.append(asbab_source)
+        passages.extend(asbab_passages)
+        asbab_version = asbab_dump["license"]["version"]
 
     return {
         "synthetic": False,
         "_provenance": {"source": "https://quranpedia.net/dumps", "mushaf": data.get("name"),
                         "description": data.get("description"), "version": version,
                         "topics_version": (topics_dump or {}).get("license", {}).get("version", ""),
-                        "tafsir_version": tafsir_version},
+                        "tafsir_version": tafsir_version, "asbab_version": asbab_version},
         "sources": sources,
         "passages": passages,
     }
@@ -188,6 +202,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("dump", type=Path)
     parser.add_argument("--topics", type=Path, help="topics.json.gz from quranpedia.net/dumps")
     parser.add_argument("--tafsir", type=Path, help="tafsir-book-<id>.json.gz from quranpedia.net/dumps")
+    parser.add_argument("--asbab", type=Path, help="asbab-book-<id>.json.gz from quranpedia.net/dumps")
     parser.add_argument("-o", "--output", type=Path, default=Path("data/quran_corpus.json"))
     args = parser.parse_args(argv)
     with _open(args.dump) as fh:
@@ -200,7 +215,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.tafsir:
         with _open(args.tafsir) as fh:
             tafsir = json.load(fh)
-    corpus = build_corpus(dump, topics_dump=topics, tafsir_dump=tafsir)
+    asbab = None
+    if args.asbab:
+        with _open(args.asbab) as fh:
+            asbab = json.load(fh)
+    corpus = build_corpus(dump, topics_dump=topics, tafsir_dump=tafsir, asbab_dump=asbab)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(corpus, ensure_ascii=False), encoding="utf-8")
     print(f"{len(corpus['passages'])} passages written to {args.output} "

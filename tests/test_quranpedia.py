@@ -98,3 +98,22 @@ def test_tafsir_passages_strip_markup_and_keep_wording():
     assert p.text == "{١ - ٢} ﴿نَصٌّ﴾ أي: شرح أول.\nشرح & ثانٍ."
     assert p.location == "سورة أ، الآيات 1–2 (ج1، ص5)"
     assert "2026-08-10" in corpus.sources["quranpedia-tafsir-3"].about
+
+
+def test_asbab_book_is_imported_as_its_own_kind():
+    book = {"license": {"version": "2026-08-10"},
+            "book": {"id": 460, "name": "كتاب الأسباب", "short_name": "الأسباب", "author": {"ar_name": "مؤلف"}},
+            "ayahs": [{"surah": 1, "ayah": 2, "content": [
+                {"text": "<strong>* سَبَبُ النُّزُولِ:</strong><br />\rأخرج البخاري قال: فنزلت.", "part": "2", "page": 9}]}]}
+    tafsir = {"license": {"version": "2026-08-10"},
+              "book": {"id": 4, "name": "تفسير", "author": {"ar_name": "مفسر"}},
+              "ayahs": [{"surah": 1, "ayah": 2, "content": [{"text": "شرح.", "part": 1, "page": 1}]}]}
+    corpus = parse_corpus(build_corpus(_dump(), expected_surahs=1, expected_ayahs=2,
+                                       tafsir_dump=tafsir, asbab_dump=book))
+    asbab = [p for p in corpus.passages if p.kind == "asbab"]
+    assert len(asbab) == 1 and asbab[0].id.startswith("a460:1:2:")
+    assert asbab[0].text == "* سَبَبُ النُّزُولِ:\nأخرج البخاري قال: فنزلت."
+    about = corpus.sources["quranpedia-asbab-460"].about
+    assert "الكتب التسعة" in about and "دراسة المؤلف" in about and "2026-08-10" in about
+    assert [p.kind for p in corpus.passages].count("tafsir") == 1  # tafsir ids unchanged
+    assert any(p.id.startswith("t4:") for p in corpus.passages)

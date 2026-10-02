@@ -49,7 +49,7 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-بيانات المصادر (القرآن وموضوعات الآيات وتفسير الطبري من الموسوعة القرآنية quranpedia.net) تُبنى في قاعدة SQLite عند النشر، ولا تُحفظ في المستودع:
+بيانات المصادر (القرآن وموضوعات الآيات وتفسير الطبري وكتاب «المحرر في أسباب نزول القرآن» من الموسوعة القرآنية quranpedia.net) تُبنى في قاعدة SQLite عند النشر، ولا تُحفظ في المستودع:
 
 ```bash
 python -m muhawir.build_data --download          # ينزّل الملفات ويبني data/muhawir.db
