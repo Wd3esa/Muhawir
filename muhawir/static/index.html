@@ -47,7 +47,10 @@
   .card .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
   .note { color: var(--muted); font-size: 14px; margin-top: 10px; }
   .views { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 12px; }
-  .views h3 { margin: 0 0 6px; font-size: 16px; }
+  .views h3, .views summary { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+  .card summary, .views summary { cursor: pointer; }
+  .card summary { font-weight: 600; font-size: 16px; }
+  .card[open] summary, .views[open] summary { margin-bottom: 6px; }
   .view { margin: 6px 0; }
   footer { color: var(--muted); font-size: 13px; margin-top: 28px; }
   a { color: var(--accent); }
@@ -88,14 +91,14 @@
 const UI = {
   ar: { lang: "اللغة", tagline: "يجيب عن أسئلة الإسلام من مصادر معتمدة فقط، ويذكر مصدر كل جواب، ويحيلك إلى مختص عند غياب المرجعية أو طلب فتوى شخصية.",
         qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
-        views: "أقوال العلماء كما وردت في المصادر (دون ترجيح)", viewsNote: "لمعرفة ما يلزمك في حالتك، اسأل مختصًا.",
+        views: "أقوال العلماء كما وردت في المصادر (دون ترجيح)",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
         source: "المصدر", topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "" } },
   en: { lang: "Language", tagline: "Answers questions about Islam only from approved sources, states the source of every answer, and refers you to a specialist when no authoritative source exists or when you ask for a personal fatwa.",
         qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
-        views: "Scholars' views as stated in the sources (no preference given)", viewsNote: "To know what applies to you, ask a qualified scholar.",
+        views: "Scholars' views as stated in the sources (no preference given)",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
         source: "Source", topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
@@ -119,7 +122,9 @@ function applyLang() {
   $("synthetic").textContent = t.synthetic;
 }
 
-function render(res) {
+// Short styles show the answer first; sources and views open on request, unchanged.
+function render(res, style) {
+  const open = style === "extended";
   const t = UI[lang];
   const box = $("answer");
   box.replaceChildren();
@@ -129,22 +134,27 @@ function render(res) {
   msg.append(el("div", "", res.message));
   const quoted = new Set((res.sources || []).map((s) => `«${s.quote}»`));
   // A claim that only repeats a passage word for word is already shown in its source card.
-  for (const c of res.claims || []) if (!quoted.has(c.text)) msg.append(el("p", "claim", c.text));
+  const shown = new Set();  // passages whose text is itself the answer stay open
+  for (const c of res.claims || []) {
+    if (quoted.has(c.text)) c.passage_ids.forEach((id) => shown.add(id));
+    else msg.append(el("p", "claim", c.text));
+  }
   if (res.note) msg.append(el("p", "note", res.note));
   if ((res.views || []).length) {
-    const panel = el("div", "views");
-    panel.append(el("h3", "", t.views));
+    const panel = el("details", "views");
+    panel.open = open;
+    panel.append(el("summary", "", t.views));
     for (const v of res.views) {
       const row = el("p", "view");
       row.append(el("strong", "", v.school + ": "), document.createTextNode(v.text));
       panel.append(row);
     }
-    panel.append(el("div", "meta", t.viewsNote));
     msg.append(panel);
   }
   for (const s of res.sources || []) {
-    const card = el("div", "card");
-    card.append(el("h3", "", `${t.source}: ${s.source_name}`));
+    const card = el("details", "card");
+    card.open = open || shown.has(s.passage_id);
+    card.append(el("summary", "", `${s.source_name} · ${s.location}`));
     card.append(el("div", "about", s.source_about));
     card.append(el("blockquote", "", s.quote));
     if (s.topics) card.append(el("div", "meta", `${t.topics}: ${s.topics}`));
@@ -166,10 +176,11 @@ $("ask").addEventListener("submit", async (e) => {
   const btn = e.submitter || document.querySelector("button");
   btn.disabled = true;
   try {
+    const style = $("style").value;
     const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: $("q").value, style: $("style").value, lang }) });
+      body: JSON.stringify({ question: $("q").value, style, lang }) });
     if (!r.ok) throw new Error(r.status);
-    render(await r.json());
+    render(await r.json(), style);
   } catch {
     $("answer").replaceChildren(el("div", "msg", UI[lang].error));
   } finally {
