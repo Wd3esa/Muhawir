@@ -25,12 +25,3 @@
 - **المصادر الأخرى** (dawa.center وislamic-content.com وquranpedia.net): لم تُفحص شروطها بعد.
 
 **النتيجة:** لا يصح افتراض أننا نستطيع تنزيل هذه المصادر وفهرستها. وهذا هو القرار D4.
-
-## مراجع البحث
-
-- Pew Research Center (2026). Americans and AI 2026. مقياس CHATAWARE.
-- Arab Barometer (2024). Wave VIII questionnaire. مقياس Q201B.
-- Reuters Institute (2026). Digital News Report 2026 questionnaire. خيارات Q_ClickAI.
-- Askar, A. et al. (2025). Online Islamic knowledge sources and their authority in Islamic learning. Cogent Education, 12(1), 2504236.
-- ESOMAR & GRBN. Guideline on research and data analytics with children, young people, and other vulnerable individuals.
-- CCSG, University of Michigan. Translation: Overview؛ وPretesting: Cognitive interviewing.
