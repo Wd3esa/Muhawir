@@ -1,0 +1,17 @@
+# أسرار ومفاتيح
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+# بيانات مستخدمين وإجابات الاستبيان (لا تُنشر)
+data/private/
+*.csv
+# بناء وأدوات
+node_modules/
+__pycache__/
+.venv/
+dist/
+build/
+.DS_Store
