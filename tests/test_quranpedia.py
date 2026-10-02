@@ -70,3 +70,15 @@ def test_real_dump(tmp_path):
             text = corpus.passage(f"q:{surah['id']}:{ayah['number']}").text
             assert text == ayah["text"].lstrip("\ufeff").strip()
     assert all("\ufeff" not in p.text for p in corpus.passages)
+
+
+def test_topics_become_search_only_keywords():
+    topics = {"data": [{"surah": 1, "ayah": 2, "topics": [
+        {"name": "موضوع فرعي", "parent": {"name": "موضوع أصل"}},
+        {"name": "موضوع أصل", "parent": None}]}]}
+    corpus = parse_corpus(build_corpus(_dump(), expected_surahs=1, expected_ayahs=2,
+                                       topics_dump=topics))
+    second = corpus.passage("q:1:2")
+    assert second.keywords == "موضوع أصل؛ موضوع فرعي"
+    assert second.text == "نَصٌّ ثَانٍ ۚ"  # the quote itself is unchanged
+    assert corpus.passage("q:1:1").keywords == ""

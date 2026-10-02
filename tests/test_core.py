@@ -182,3 +182,15 @@ def test_unknown_provider_is_refused(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "some-model")
     with pytest.raises(NotImplementedError):
         get_generator()
+
+
+def test_keywords_are_searched_but_not_quoted():
+    corpus = parse_corpus({"sources": _src(), "passages": [
+        {"id": "p1", "source_id": "s", "location": "l", "text": "نص لا يذكر الكلمة", "keywords": "الزراعة"},
+        {"id": "p2", "source_id": "s", "location": "l", "text": "نص آخر مختلف تماما"},
+        {"id": "p3", "source_id": "s", "location": "l", "text": "حديث عن البحر"},
+        {"id": "p4", "source_id": "s", "location": "l", "text": "حديث عن الجبال"},
+        {"id": "p5", "source_id": "s", "location": "l", "text": "حديث عن المطر"}]})
+    res = Muhawir(corpus, ExtractiveGenerator()).ask("الزراعة")
+    assert res.status == ANSWERED and res.sources[0]["quote"] == "نص لا يذكر الكلمة"
+    assert res.sources[0]["topics"] == "الزراعة"

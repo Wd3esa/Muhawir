@@ -49,15 +49,15 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-نص القرآن (اختياري، من بيانات الموسوعة القرآنية): نزّل `mushafs-all.zip` من https://quranpedia.net/dumps، ثم:
+نص القرآن (اختياري، من بيانات الموسوعة القرآنية): نزّل `mushafs-all.zip` و`topics.json.gz` (موضوعات الآيات) من https://quranpedia.net/dumps، ثم:
 
 ```bash
 unzip mushafs-all.zip -d data/dumps
-python -m muhawir.quranpedia data/dumps/mushafs-1.json.gz -o data/quran_corpus.json
+python -m muhawir.quranpedia data/dumps/mushafs-1.json.gz --topics data/dumps/topics.json.gz -o data/quran_corpus.json
 MUHAWIR_CORPUS=data/quran_corpus.json uvicorn muhawir.server:app --port 8000
 ```
 
-النص لا يُحفظ في المستودع (انظر SOURCES.md). تنبيه: مع البحث بالكلمات وبلا نموذج لغوي قد تُعرض آيات تشترك مع السؤال في لفظ دون أن تجيب عنه، فلا يُعرض هذا الوضع على المستخدمين قبل إضافة فهرس الموضوعات والنموذج.
+النص لا يُحفظ في المستودع (انظر SOURCES.md). أسماء الموضوعات تُستعمل في البحث فقط، والنص المعروض هو الآية حرفيًا. تنبيه: مع البحث بالكلمات وبلا نموذج لغوي قد تُعرض آيات تشترك مع السؤال في لفظ أو موضوع دون أن تجيب عنه، فلا يُعرض هذا الوضع على المستخدمين قبل ربط النموذج.
 
 الإعدادات في متغيرات بيئة (انظر `.env.example`): `LLM_PROVIDER` و`MUHAWIR_CORPUS`. لا تُكتب المفاتيح في الشيفرة.
 

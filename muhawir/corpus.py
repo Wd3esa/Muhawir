@@ -34,6 +34,7 @@ class Passage:
     text: str
     kind: str = "other"
     grade: str = ""  # hadith grading as stated by the source, if any
+    keywords: str = ""  # search-only terms (e.g. topic names); never shown as the quote
 
 
 @dataclass
@@ -83,7 +84,7 @@ def parse_corpus(data: dict) -> Corpus:
             raise CorpusError(f"passage '{raw['id']}' has unknown kind '{kind}'")
         seen.add(raw["id"])
         passages.append(Passage(raw["id"], raw["source_id"], raw["location"], raw["text"],
-                                kind, raw.get("grade", "")))
+                                kind, raw.get("grade", ""), raw.get("keywords", "")))
     if not passages:
         raise CorpusError("corpus has no passages")
     return Corpus(sources, passages, bool(data.get("synthetic", False)))

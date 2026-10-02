@@ -46,7 +46,7 @@ class Muhawir:
             p = self.corpus.passage(pid)
             s = self.corpus.source_of(p)
             cards.append({"passage_id": p.id, "quote": p.text, "location": p.location,
-                          "kind": p.kind, "grade": p.grade, "source_name": s.name,
+                          "kind": p.kind, "grade": p.grade, "topics": p.keywords, "source_name": s.name,
                           "source_about": s.about, "source_url": s.url})
         return cards
 

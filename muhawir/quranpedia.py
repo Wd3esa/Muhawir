@@ -6,7 +6,11 @@ The ayah text is kept exactly as in the dump; only leading byte-order marks
 (U+FEFF) present in the dump are removed. The dump version is recorded so the
 source card can state it, as the Quranpedia licence asks for republication.
 
-Usage: python -m muhawir.quranpedia mushafs-1.json.gz -o data/quran_corpus.json
+Optional: the verse-topics dump (topics.json.gz). Topic names are attached as
+search-only keywords so a question can reach the ayahs that concern it; they
+are never shown as the quoted text.
+
+Usage: python -m muhawir.quranpedia mushafs-1.json.gz [--topics topics.json.gz] -o data/quran_corpus.json
 """
 from __future__ import annotations
 
@@ -29,8 +33,25 @@ def _open(path: Path):
     return gzip.open(path, "rt", encoding="utf-8") if path.suffix == ".gz" else open(path, encoding="utf-8")
 
 
+def topic_keywords(topics_dump: dict | None) -> dict[str, str]:
+    """Map "surah:ayah" to its topic names (topic and parent), joined with "؛ "."""
+    if not topics_dump:
+        return {}
+    out: dict[str, str] = {}
+    for row in topics_dump.get("data", []):
+        names: list[str] = []
+        for topic in row.get("topics", []):
+            parent = (topic.get("parent") or {}).get("name")
+            for name in (parent, topic.get("name")):
+                if name and name not in names:
+                    names.append(name)
+        if names:
+            out[f"{int(row['surah'])}:{int(row['ayah'])}"] = "؛ ".join(names)
+    return out
+
+
 def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
-                 expected_ayahs: int = EXPECTED_AYAHS) -> dict:
+                 expected_ayahs: int = EXPECTED_AYAHS, topics_dump: dict | None = None) -> dict:
     data, licence = dump.get("data", {}), dump.get("license", {})
     version = licence.get("version", "")
     if data.get("id") != HAFS_MUSHAF_ID:
@@ -41,6 +62,7 @@ def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
     if len(surahs) != expected_surahs:
         raise ImportError_(f"expected {expected_surahs} surahs, got {len(surahs)}")
 
+    keywords = topic_keywords(topics_dump)
     passages = []
     for surah in surahs:
         number, name = int(surah["id"]), surah["name"]
@@ -54,6 +76,7 @@ def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
                 "location": f"{name}، الآية {ayah['number']}",
                 "kind": "quran",
                 "text": text,
+                "keywords": keywords.get(f"{number}:{ayah['number']}", ""),
             })
     if len(passages) != expected_ayahs:
         raise ImportError_(f"expected {expected_ayahs} ayahs, got {len(passages)}")
@@ -61,7 +84,8 @@ def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
     return {
         "synthetic": False,
         "_provenance": {"source": "https://quranpedia.net/dumps", "mushaf": data.get("name"),
-                        "description": data.get("description"), "version": version},
+                        "description": data.get("description"), "version": version,
+                        "topics_version": (topics_dump or {}).get("license", {}).get("version", "")},
         "sources": [{
             "id": SOURCE_ID,
             "name": "القرآن الكريم (رواية حفص عن عاصم)",
@@ -76,10 +100,16 @@ def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("dump", type=Path)
+    parser.add_argument("--topics", type=Path, help="topics.json.gz from quranpedia.net/dumps")
     parser.add_argument("-o", "--output", type=Path, default=Path("data/quran_corpus.json"))
     args = parser.parse_args(argv)
     with _open(args.dump) as fh:
-        corpus = build_corpus(json.load(fh))
+        dump = json.load(fh)
+    topics = None
+    if args.topics:
+        with _open(args.topics) as fh:
+            topics = json.load(fh)
+    corpus = build_corpus(dump, topics_dump=topics)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(corpus, ensure_ascii=False), encoding="utf-8")
     print(f"{len(corpus['passages'])} ayahs written to {args.output} "

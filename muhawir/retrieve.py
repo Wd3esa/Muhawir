@@ -28,7 +28,7 @@ class Retriever:
     def __init__(self, corpus: Corpus, k1: float = 1.5, b: float = 0.75) -> None:
         self.corpus = corpus
         self.k1, self.b = k1, b
-        self.docs = [tokenize(p.text) for p in corpus.passages]
+        self.docs = [tokenize(f"{p.text} {p.keywords}") for p in corpus.passages]
         self.tfs = [Counter(d) for d in self.docs]
         self.avgdl = sum(len(d) for d in self.docs) / len(self.docs)
         df: Counter[str] = Counter()

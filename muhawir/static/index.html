@@ -86,13 +86,13 @@ const UI = {
         qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", send: "اسأل",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
-        source: "المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
+        source: "المصدر", topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "" } },
   en: { lang: "Language", tagline: "Answers questions about Islam only from approved sources, states the source of every answer, and refers you to a specialist when no authoritative source exists or when you ask for a personal fatwa.",
         qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", send: "Ask",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
-        source: "Source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
+        source: "Source", topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
         status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "" } }
 };
 const $ = (id) => document.getElementById(id);
@@ -130,6 +130,7 @@ function render(res) {
     card.append(el("h3", "", `${t.source}: ${s.source_name}`));
     card.append(el("div", "about", s.source_about));
     card.append(el("blockquote", "", s.quote));
+    if (s.topics) card.append(el("div", "meta", `${t.topics}: ${s.topics}`));
     const meta = el("div", "meta", `${t.location}: ${s.location}` + (s.grade ? ` · ${t.grade}: ${s.grade}` : ""));
     if (s.source_url) {
       const a = el("a", "", t.open);
