@@ -295,7 +295,8 @@ def get_generator() -> Generator:
     if os.environ.get("OPENAI_COMPAT_BASE_URL") and os.environ.get("OPENAI_COMPAT_MODEL"):
         calls.append(("open-model", openai_compatible_call(
             os.environ["OPENAI_COMPAT_BASE_URL"], os.environ["OPENAI_COMPAT_MODEL"],
-            os.environ.get("OPENAI_COMPAT_API_KEY", ""))))
+            os.environ.get("OPENAI_COMPAT_API_KEY", ""),
+            float(os.environ.get("OPENAI_COMPAT_TIMEOUT") or 300))))
     if not calls:
         raise RuntimeError("LLM_PROVIDER=model needs ANTHROPIC_API_KEY, or GEMINI_API_KEY with "
                            "GEMINI_MODEL, or OPENAI_COMPAT_BASE_URL with OPENAI_COMPAT_MODEL")

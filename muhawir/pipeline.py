@@ -6,6 +6,7 @@ stopped, and never answers when retrieval found nothing sufficient.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, field
 
 from . import classify
@@ -15,7 +16,7 @@ from .messages import LANGS, STYLES, TEXT
 from .retrieve import Retriever, is_sufficient
 from .verify import verify
 
-MODEL_CANDIDATES = 8      # passages offered to the model, which judges relevance itself
+MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 8)  # passages offered to the model; fewer = faster on slow machines
 MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
 
 MAX_QUESTION_CHARS = 500
