@@ -1,0 +1,55 @@
+{
+  "synthetic": true,
+  "_note": "Synthetic test data written for software tests only. These are NOT religious texts and NOT taken from any approved source. Replace with approved-source passages after decision D4.",
+  "sources": [
+    {
+      "id": "test-a",
+      "name": "مصدر تجريبي أ",
+      "about": "مصدر مصطنع لاختبار البرنامج فقط، وليس مصدرًا حقيقيًا.",
+      "url": ""
+    },
+    {
+      "id": "test-b",
+      "name": "مصدر تجريبي ب",
+      "about": "مصدر مصطنع ثانٍ لاختبار عرض أكثر من مصدر.",
+      "url": ""
+    }
+  ],
+  "passages": [
+    {
+      "id": "test-a:1",
+      "source_id": "test-a",
+      "location": "الفصل 1، الفقرة 1",
+      "kind": "other",
+      "text": "النخلة شجرة تحتاج إلى ماء كثير في الصيف، وتُثمر التمر في آخره."
+    },
+    {
+      "id": "test-a:2",
+      "source_id": "test-a",
+      "location": "الفصل 1، الفقرة 2",
+      "kind": "other",
+      "text": "يظهر القمر بدرًا في منتصف الشهر القمري، ويكون هلالًا في أوله."
+    },
+    {
+      "id": "test-a:3",
+      "source_id": "test-a",
+      "location": "الفصل 2، الفقرة 1",
+      "kind": "other",
+      "text": "الماء يتجمد عند درجة الصفر المئوية ويغلي عند مئة درجة."
+    },
+    {
+      "id": "test-b:1",
+      "source_id": "test-b",
+      "location": "الباب الأول",
+      "kind": "other",
+      "text": "الجمل حيوان يصبر على العطش أيامًا طويلة في الصحراء."
+    },
+    {
+      "id": "test-b:2",
+      "source_id": "test-b",
+      "location": "الباب الثاني",
+      "kind": "other",
+      "text": "تهاجر بعض الطيور في الخريف إلى المناطق الدافئة."
+    }
+  ]
+}

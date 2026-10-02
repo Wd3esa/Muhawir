@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مُحاور</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1f2430; --muted: #5d6475;
+    --line: #dedbd2; --accent: #1f6f5c; --accent-ink: #ffffff;
+    --warn-bg: #fff4dc; --warn-ink: #6b4a00; --card: #f2f7f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181d; --panel: #1d2128; --ink: #e9ebef; --muted: #a3a9b6;
+      --line: #313743; --accent: #4fb69a; --accent-ink: #0d1512;
+      --warn-bg: #3a3017; --warn-ink: #f2d999; --card: #1b2a26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 17px/1.7 "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 30px; }
+  .tag { color: var(--muted); margin: 4px 0 16px; }
+  .banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px;
+            padding: 10px 14px; margin-bottom: 16px; font-size: 15px; }
+  form { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  textarea { width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--line);
+             border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--ink); background: var(--bg); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  label { color: var(--muted); font-size: 15px; }
+  select { font: inherit; font-size: 15px; padding: 6px 8px; border-radius: 8px;
+           border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  button { margin-inline-start: auto; font: inherit; font-weight: 600; padding: 8px 22px;
+           border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  #answer { margin-top: 20px; }
+  .msg { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; white-space: pre-line; }
+  .status { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .claim { margin: 10px 0 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+  .card h3 { margin: 0; font-size: 16px; }
+  .card .about { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
+  .card blockquote { margin: 0; padding-inline-start: 12px; border-inline-start: 3px solid var(--accent); }
+  .card .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .note { color: var(--muted); font-size: 14px; margin-top: 10px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 28px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>مُحاور</h1>
+    <div>
+      <label for="lang" data-t="lang">اللغة</label>
+      <select id="lang"><option value="ar">العربية</option><option value="en">English</option></select>
+    </div>
+  </header>
+  <p class="tag" data-t="tagline">يجيب عن أسئلة الإسلام من مصادر معتمدة فقط، ويذكر مصدر كل جواب، ويحيلك إلى مختص عند غياب المرجعية أو طلب فتوى شخصية.</p>
+  <div class="banner" id="synthetic" hidden></div>
+
+  <form id="ask">
+    <label for="q" data-t="qlabel">سؤالك</label>
+    <textarea id="q" maxlength="500" required></textarea>
+    <div class="row">
+      <label for="style" data-t="style">أسلوب الشرح</label>
+      <select id="style">
+        <option value="kids" data-t="kids">للصغار</option>
+        <option value="youth" data-t="youth" selected>للشباب</option>
+        <option value="extended" data-t="extended">موسّع</option>
+      </select>
+      <button type="submit" data-t="send">اسأل</button>
+    </div>
+  </form>
+
+  <section id="answer" aria-live="polite"></section>
+
+  <footer data-t="disclaimer">مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.</footer>
+</main>
+<script>
+const UI = {
+  ar: { lang: "اللغة", tagline: "يجيب عن أسئلة الإسلام من مصادر معتمدة فقط، ويذكر مصدر كل جواب، ويحيلك إلى مختص عند غياب المرجعية أو طلب فتوى شخصية.",
+        qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", send: "اسأل",
+        disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
+        synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
+        source: "المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
+        status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "" } },
+  en: { lang: "Language", tagline: "Answers questions about Islam only from approved sources, states the source of every answer, and refers you to a specialist when no authoritative source exists or when you ask for a personal fatwa.",
+        qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", send: "Ask",
+        disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
+        synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
+        source: "Source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
+        status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "" } }
+};
+const $ = (id) => document.getElementById(id);
+let lang = "ar";
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function applyLang() {
+  const t = UI[lang];
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  document.querySelectorAll("[data-t]").forEach((n) => { n.textContent = t[n.dataset.t]; });
+  $("synthetic").textContent = t.synthetic;
+}
+
+function render(res) {
+  const t = UI[lang];
+  const box = $("answer");
+  box.replaceChildren();
+  $("synthetic").hidden = !res.synthetic;
+  const msg = el("div", "msg");
+  if (t.status[res.status]) msg.append(el("div", "status", t.status[res.status]));
+  msg.append(el("div", "", res.message));
+  const quoted = new Set((res.sources || []).map((s) => `«${s.quote}»`));
+  // A claim that only repeats a passage word for word is already shown in its source card.
+  for (const c of res.claims || []) if (!quoted.has(c.text)) msg.append(el("p", "claim", c.text));
+  if (res.note) msg.append(el("p", "note", res.note));
+  for (const s of res.sources || []) {
+    const card = el("div", "card");
+    card.append(el("h3", "", `${t.source}: ${s.source_name}`));
+    card.append(el("div", "about", s.source_about));
+    card.append(el("blockquote", "", s.quote));
+    const meta = el("div", "meta", `${t.location}: ${s.location}` + (s.grade ? ` · ${t.grade}: ${s.grade}` : ""));
+    if (s.source_url) {
+      const a = el("a", "", t.open);
+      a.href = s.source_url; a.target = "_blank"; a.rel = "noopener";
+      meta.append(" · ", a);
+    }
+    card.append(meta);
+    msg.append(card);
+  }
+  box.append(msg);
+}
+
+$("lang").addEventListener("change", (e) => { lang = e.target.value; applyLang(); });
+$("ask").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = e.submitter || document.querySelector("button");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: $("q").value, style: $("style").value, lang }) });
+    if (!r.ok) throw new Error(r.status);
+    render(await r.json());
+  } catch {
+    $("answer").replaceChildren(el("div", "msg", UI[lang].error));
+  } finally {
+    btn.disabled = false;
+  }
+});
+fetch("/api/health").then((r) => r.json()).then((h) => { $("synthetic").hidden = !h.synthetic; }).catch(() => {});
+applyLang();
+</script>
+</body>
+</html>
