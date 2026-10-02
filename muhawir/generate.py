@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import time
 from typing import Callable, Protocol
 
 from .corpus import Passage
@@ -123,10 +125,23 @@ def build_user_prompt(question: str, passages: list[Passage], style: str, lang: 
     return "\n\n".join(lines)
 
 
+_THINK = re.compile(r"<think>.*?</think>", re.S)
+
+
+def load_json(raw: str):
+    """Parse a model reply as JSON, ignoring a <think> block or ``` fences some local models add."""
+    text = _THINK.sub("", raw or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+        if text.lower().startswith("json"):
+            text = text[4:]
+    return json.loads(text)
+
+
 def parse_draft(raw: str) -> list[Claim]:
     """Claims from the model's JSON. Anything malformed counts as abstaining."""
     try:
-        data = json.loads(raw)
+        data = load_json(raw)
     except (TypeError, ValueError):
         return []
     if not isinstance(data, dict) or data.get("abstain") is not False:
@@ -153,6 +168,22 @@ def parse_draft(raw: str) -> list[Claim]:
 
 ModelCall = Callable[[str, str, dict], str]  # (system, user, json schema) -> raw JSON text
 
+RETRY_STATUS = {429, 500, 502, 503, 504}  # busy or temporary errors
+RETRY_WAIT = 2.0
+
+
+def with_retry(call: ModelCall, system: str, user: str, schema: dict, sleep=time.sleep) -> str:
+    """Call once more after a short wait if the provider says it is busy; other errors pass through."""
+    try:
+        return call(system, user, schema)
+    except Exception as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status not in RETRY_STATUS:
+            raise
+        log.warning("model busy (HTTP %s), retrying once in %.0fs", status, RETRY_WAIT)
+        sleep(RETRY_WAIT)
+        return call(system, user, schema)
+
 
 class ModelGenerator:
     strict_retrieval = False
@@ -166,8 +197,8 @@ class ModelGenerator:
         """Up to three Arabic search phrases for retrieval. Failure returns []."""
         for _name, call in self.calls:
             try:
-                raw = call(EXPAND_PROMPT, f"<<<{question}>>>", EXPAND_SCHEMA)
-                queries = json.loads(raw).get("queries", [])
+                raw = with_retry(call, EXPAND_PROMPT, f"<<<{question}>>>", EXPAND_SCHEMA)
+                queries = load_json(raw).get("queries", [])
             except Exception as exc:
                 log.warning("model %s failed (search phrases): %s", _name, describe(exc))
                 continue
@@ -179,7 +210,7 @@ class ModelGenerator:
         user = build_user_prompt(question, passages, style, lang, personal)
         for name, call in self.calls:
             try:
-                raw = call(SYSTEM_PROMPT, user, SCHEMA)
+                raw = with_retry(call, SYSTEM_PROMPT, user, SCHEMA)
             except Exception as exc:  # network, quota, timeout, wrong model name: try the fallback
                 log.warning("model %s failed (answer): %s", name, describe(exc))
                 continue
@@ -226,6 +257,29 @@ def gemini_call(api_key: str, model: str, timeout: float = 60.0) -> ModelCall:
     return call
 
 
+def openai_compatible_call(base_url: str, model: str, api_key: str = "",
+                           timeout: float = 300.0) -> ModelCall:
+    """Any server speaking the common chat-completions format: Ollama on your own computer
+    (base_url http://localhost:11434/v1), or hosted open models such as DeepSeek or Qwen."""
+    import httpx
+
+    def call(system: str, user: str, schema: dict) -> str:
+        headers = {"content-type": "application/json"}
+        if api_key:
+            headers["authorization"] = f"Bearer {api_key}"
+        r = httpx.post(
+            base_url.rstrip("/") + "/chat/completions",
+            headers=headers,
+            json={"model": model, "temperature": 0,
+                  "response_format": {"type": "json_object"},
+                  "messages": [{"role": "system", "content": system},
+                               {"role": "user", "content": user}]},
+            timeout=timeout)
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"] or ""
+    return call
+
+
 def get_generator() -> Generator:
     provider = os.environ.get("LLM_PROVIDER", "extractive").strip().lower()
     if provider in ("", "extractive"):
@@ -238,7 +292,11 @@ def get_generator() -> Generator:
                                                os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5"))))
     if os.environ.get("GEMINI_API_KEY") and os.environ.get("GEMINI_MODEL"):
         calls.append(("gemini", gemini_call(os.environ["GEMINI_API_KEY"], os.environ["GEMINI_MODEL"])))
+    if os.environ.get("OPENAI_COMPAT_BASE_URL") and os.environ.get("OPENAI_COMPAT_MODEL"):
+        calls.append(("open-model", openai_compatible_call(
+            os.environ["OPENAI_COMPAT_BASE_URL"], os.environ["OPENAI_COMPAT_MODEL"],
+            os.environ.get("OPENAI_COMPAT_API_KEY", ""))))
     if not calls:
-        raise RuntimeError("LLM_PROVIDER=model needs ANTHROPIC_API_KEY (and optionally "
-                           "GEMINI_API_KEY with GEMINI_MODEL) in the environment")
+        raise RuntimeError("LLM_PROVIDER=model needs ANTHROPIC_API_KEY, or GEMINI_API_KEY with "
+                           "GEMINI_MODEL, or OPENAI_COMPAT_BASE_URL with OPENAI_COMPAT_MODEL")
     return ModelGenerator(calls)

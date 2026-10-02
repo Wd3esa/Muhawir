@@ -194,3 +194,70 @@ def test_failed_call_is_logged_without_the_question(caplog):
     caplog.set_level("WARNING", logger="muhawir")
     engine(RuntimeError("model not found")).ask(QUESTION)
     assert "model not found" in caplog.text and QUESTION not in caplog.text
+
+
+# --- retry on busy errors, open-model connector, tolerant JSON ---------------
+
+class _HTTPError(Exception):
+    def __init__(self, status):
+        super().__init__(f"HTTP {status}")
+        self.response = type("R", (), {"status_code": status, "text": "busy"})()
+
+
+def test_busy_error_is_retried_once():
+    replies = [_HTTPError(503), '{"queries": []}']
+
+    def call(system, user, schema):
+        r = replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+    assert generate.with_retry(call, "s", "u", {}, sleep=lambda s: None) == '{"queries": []}'
+
+
+def test_other_errors_are_not_retried():
+    calls = []
+
+    def call(system, user, schema):
+        calls.append(1)
+        raise _HTTPError(404)
+    with pytest.raises(_HTTPError):
+        generate.with_retry(call, "s", "u", {}, sleep=lambda s: None)
+    assert len(calls) == 1
+
+
+def test_reply_with_think_block_and_fence_is_parsed():
+    raw = '<think>reasoning</think>\n```json\n{"abstain": false, "claims": [{"text": "ت", "passage_ids": ["a"]}], "views": []}\n```'
+    assert parse_draft(raw)[0].text == "ت"
+
+
+def test_open_model_request_shape(monkeypatch):
+    sent = {}
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": '{"queries": ["أ"]}'}}]}
+
+    def post(url, headers, json, timeout):
+        sent.update(url=url, headers=headers, body=json)
+        return Resp()
+
+    import httpx
+    monkeypatch.setattr(httpx, "post", post)
+    out = generate.openai_compatible_call("http://localhost:11434/v1/", "qwen")("s", "u", {})
+    assert out == '{"queries": ["أ"]}'
+    assert sent["url"] == "http://localhost:11434/v1/chat/completions"
+    assert "authorization" not in sent["headers"]
+    assert sent["body"]["model"] == "qwen" and sent["body"]["messages"][0]["role"] == "system"
+
+
+def test_open_model_selected_from_environment(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "model")
+    for k in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("OPENAI_COMPAT_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("OPENAI_COMPAT_MODEL", "qwen")
+    assert get_generator().name == "open-model"
