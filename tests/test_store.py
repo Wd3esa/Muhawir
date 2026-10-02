@@ -72,3 +72,14 @@ def test_read_mushaf_from_zip(tmp_path):
         z.writestr("mushafs/mushafs-1.json.gz", payload)
         z.writestr("mushafs/mushafs-11.json.gz", gzip.compress(b'{"data": {"id": 11}}'))
     assert build_data.read_mushaf(tmp_path)["data"]["id"] == 1
+
+
+def test_real_sources_refuse_extractive_mode(tmp_path, monkeypatch):
+    data = json.loads(SYNTHETIC.read_text(encoding="utf-8"))
+    data["synthetic"] = False
+    build_db(data, tmp_path / "real.db")
+    monkeypatch.setenv("MUHAWIR_DB", str(tmp_path / "real.db"))
+    monkeypatch.delenv("MUHAWIR_CORPUS", raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", "extractive")
+    with pytest.raises(RuntimeError):
+        server.build()

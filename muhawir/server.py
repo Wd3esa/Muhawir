@@ -25,13 +25,22 @@ DEFAULT_DB = ROOT.parent / "data" / "muhawir.db"
 
 
 def build() -> Muhawir:
-    """Use the SQLite database when it exists (built by muhawir.build_data), else a JSON corpus."""
+    """Use the SQLite database when it exists (built by muhawir.build_data), else a JSON corpus.
+
+    Real religious sources are only served in model mode: keyword matching alone
+    returns passages that share words with a question without answering it.
+    """
     db = Path(os.environ.get("MUHAWIR_DB") or DEFAULT_DB)
+    generator = get_generator()
     if db.exists() and not os.environ.get("MUHAWIR_CORPUS"):
         corpus = SqliteCorpus(db)
-        return Muhawir(corpus, get_generator(), SqliteRetriever(corpus))
-    corpus = load_corpus(os.environ.get("MUHAWIR_CORPUS") or DEFAULT_CORPUS)
-    return Muhawir(corpus, get_generator())
+        engine = Muhawir(corpus, generator, SqliteRetriever(corpus))
+    else:
+        corpus = load_corpus(os.environ.get("MUHAWIR_CORPUS") or DEFAULT_CORPUS)
+        engine = Muhawir(corpus, generator)
+    if not corpus.synthetic and generator.name == "extractive":
+        raise RuntimeError("real sources need LLM_PROVIDER=model; extractive mode is for test data only")
+    return engine
 
 
 app = FastAPI(title="Muhawir", docs_url=None, redoc_url=None)
