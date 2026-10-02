@@ -1,7 +1,7 @@
 """Fixed user-facing texts. Answers themselves only come from passages."""
 
 LANGS = ("ar", "en")
-STYLES = ("kids", "youth", "extended")
+STYLES = ("kids", "youth", "extended", "newcomer")
 
 TEXT = {
     "ar": {
@@ -18,6 +18,7 @@ TEXT = {
             "kids": "هذا ما وجدته في المصادر:",
             "youth": "هذا ما تقوله المصادر المعتمدة:",
             "extended": "هذه النصوص الواردة في المصادر المعتمدة حول سؤالك:",
+            "newcomer": "هذا ما تذكره المصادر الإسلامية المعتمدة:",
         },
         "translation_pending": "",
         "synthetic": "بيانات تجريبية مصطنعة للاختبار، وليست نصوصًا دينية.",
@@ -41,6 +42,7 @@ TEXT = {
             "kids": "Here is what I found in the sources:",
             "youth": "Here is what the approved sources say:",
             "extended": "These are the texts from the approved sources related to your question:",
+            "newcomer": "Here is what the approved Islamic sources say:",
         },
         "translation_pending": "The quotation is shown in its original language. Translation will be "
                                "added once a language model is connected.",

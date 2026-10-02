@@ -135,3 +135,56 @@ def test_expansion_failure_falls_back_to_question_only():
             raise RuntimeError("down")
         return json.dumps({"abstain": False, "claims": [{"text": "ماء كثير.", "passage_ids": ["test-a:1"]}]})
     assert Muhawir(CORPUS, ModelGenerator([("m", call)])).ask(QUESTION).status == ANSWERED
+
+
+# --- scholars' views panel and the "new to Islam" style -------------------
+
+from muhawir.corpus import parse_corpus  # noqa: E402
+
+VIEWS_CORPUS = parse_corpus({"synthetic": True, "sources": [{"id": "s", "name": "مصدر تجريبي", "about": "مصطنع"}],
+    "passages": [
+        {"id": "v1", "source_id": "s", "location": "ب1",
+         "text": "اختلفوا في حكم السقي: فقال العالم سين: السقي واجب. وقال العالم صاد: السقي مستحب."},
+        {"id": "v2", "source_id": "s", "location": "ب2", "text": "حديث عن البحر"},
+        {"id": "v3", "source_id": "s", "location": "ب3", "text": "حديث عن الجبال"},
+        {"id": "v4", "source_id": "s", "location": "ب4", "text": "حديث عن المطر"}]})
+
+
+def views_engine(reply):
+    return Muhawir(VIEWS_CORPUS, ModelGenerator([("m", fake(reply))]))
+
+
+ANSWER = {"text": "في المسألة أكثر من قول، فاسأل مختصًا.", "passage_ids": ["v1"]}
+
+
+def test_named_views_are_shown_without_preference():
+    res = views_engine({"abstain": False, "claims": [ANSWER], "views": [
+        {"school": "العالم سين", "text": "واجب", "passage_ids": ["v1"]},
+        {"school": "العالم صاد", "text": "مستحب", "passage_ids": ["v1"]}]}).ask("حكم السقي")
+    assert res.status == ANSWERED
+    assert [v["school"] for v in res.views] == ["العالم سين", "العالم صاد"]
+    assert res.claims == [{"text": ANSWER["text"], "passage_ids": ["v1"]}]
+
+
+def test_view_of_a_school_not_named_in_the_passage_is_dropped():
+    res = views_engine({"abstain": False, "claims": [ANSWER], "views": [
+        {"school": "الحنابلة", "text": "واجب", "passage_ids": ["v1"]}]}).ask("حكم السقي")
+    assert res.status == ANSWERED and res.views == []
+
+
+def test_views_without_a_sourced_answer_abstain():
+    res = views_engine({"abstain": False, "claims": [], "views": [
+        {"school": "العالم سين", "text": "واجب", "passage_ids": ["v1"]}]}).ask("حكم السقي")
+    assert res.status == ABSTAINED and res.views == []
+
+
+def test_newcomer_style_reaches_the_prompt():
+    call = fake({"abstain": True, "claims": [], "views": []})
+    Muhawir(CORPUS, ModelGenerator([("m", call)])).ask(QUESTION, style="newcomer")
+    assert any("جديد على الإسلام" in user for _s, user in call.calls)
+
+
+def test_parse_draft_reads_views():
+    claims = parse_draft(json.dumps({"abstain": False, "claims": [ANSWER], "views": [
+        {"school": "س", "text": "ق", "passage_ids": ["v1"]}]}))
+    assert [c.school for c in claims] == ["", "س"]

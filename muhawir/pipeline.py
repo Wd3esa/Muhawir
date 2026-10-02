@@ -32,6 +32,7 @@ class Response:
     sources: list[dict] = field(default_factory=list)
     synthetic: bool = False
     note: str = ""
+    views: list[dict] = field(default_factory=list)  # scholars' views as named in the sources
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -96,10 +97,16 @@ class Muhawir:
             return Response(status, t["personal_case" if status == REFERRED else "abstain"],
                             synthetic=synthetic)
 
-        claims = [{"text": c.text, "passage_ids": list(c.passage_ids)} for c in kept]
-        cards = self._cards([pid for c in kept for pid in c.passage_ids])
+        answer = [c for c in kept if not c.school]
+        if not answer:  # views alone, without a sourced answer, are not shown
+            status = REFERRED if personal else ABSTAINED
+            return Response(status, t["personal_case" if personal else "abstain"], synthetic=synthetic)
+        claims = [{"text": c.text, "passage_ids": list(c.passage_ids)} for c in answer]
+        views = [{"school": c.school, "text": c.text, "passage_ids": list(c.passage_ids)}
+                 for c in kept if c.school]
+        cards = self._cards([pid for c in answer + [v for v in kept if v.school] for pid in c.passage_ids])
         note = t["translation_pending"] if lang == "en" and self.generator.name == "extractive" else ""
         if gate.kind == classify.PERSONAL_CASE:
             message = t["personal_case"] + "\n" + t["personal_case_info"]
-            return Response(REFERRED, message, claims, cards, synthetic, note)
-        return Response(ANSWERED, t["intro"][style], claims, cards, synthetic, note)
+            return Response(REFERRED, message, claims, cards, synthetic, note, views)
+        return Response(ANSWERED, t["intro"][style], claims, cards, synthetic, note, views)

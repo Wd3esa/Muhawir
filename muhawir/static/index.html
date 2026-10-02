@@ -46,6 +46,9 @@
   .card blockquote { margin: 0; padding-inline-start: 12px; border-inline-start: 3px solid var(--accent); }
   .card .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
   .note { color: var(--muted); font-size: 14px; margin-top: 10px; }
+  .views { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 12px; }
+  .views h3 { margin: 0 0 6px; font-size: 16px; }
+  .view { margin: 6px 0; }
   footer { color: var(--muted); font-size: 13px; margin-top: 28px; }
   a { color: var(--accent); }
 </style>
@@ -71,6 +74,7 @@
         <option value="kids" data-t="kids">للصغار</option>
         <option value="youth" data-t="youth" selected>للشباب</option>
         <option value="extended" data-t="extended">موسّع</option>
+        <option value="newcomer" data-t="newcomer">جديد على الإسلام</option>
       </select>
       <button type="submit" data-t="send">اسأل</button>
     </div>
@@ -83,13 +87,15 @@
 <script>
 const UI = {
   ar: { lang: "اللغة", tagline: "يجيب عن أسئلة الإسلام من مصادر معتمدة فقط، ويذكر مصدر كل جواب، ويحيلك إلى مختص عند غياب المرجعية أو طلب فتوى شخصية.",
-        qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", send: "اسأل",
+        qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
+        views: "أقوال العلماء كما وردت في المصادر (دون ترجيح)", viewsNote: "لمعرفة ما يلزمك في حالتك، اسأل مختصًا.",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
         source: "المصدر", topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "" } },
   en: { lang: "Language", tagline: "Answers questions about Islam only from approved sources, states the source of every answer, and refers you to a specialist when no authoritative source exists or when you ask for a personal fatwa.",
-        qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", send: "Ask",
+        qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
+        views: "Scholars' views as stated in the sources (no preference given)", viewsNote: "To know what applies to you, ask a qualified scholar.",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
         source: "Source", topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
@@ -125,6 +131,17 @@ function render(res) {
   // A claim that only repeats a passage word for word is already shown in its source card.
   for (const c of res.claims || []) if (!quoted.has(c.text)) msg.append(el("p", "claim", c.text));
   if (res.note) msg.append(el("p", "note", res.note));
+  if ((res.views || []).length) {
+    const panel = el("div", "views");
+    panel.append(el("h3", "", t.views));
+    for (const v of res.views) {
+      const row = el("p", "view");
+      row.append(el("strong", "", v.school + ": "), document.createTextNode(v.text));
+      panel.append(row);
+    }
+    panel.append(el("div", "meta", t.viewsNote));
+    msg.append(panel);
+  }
   for (const s of res.sources || []) {
     const card = el("div", "card");
     card.append(el("h3", "", `${t.source}: ${s.source_name}`));

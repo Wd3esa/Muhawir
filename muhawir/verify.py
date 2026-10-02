@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 
 from .corpus import Corpus
-from .normalize import collapse_spaces
+from .normalize import collapse_spaces, normalize
 
 _QUOTES = re.compile(r"«([^»]+)»|\"([^\"]+)\"|“([^”]+)”|﴿([^﴾]+)﴾")
 
@@ -19,6 +19,7 @@ _QUOTES = re.compile(r"«([^»]+)»|\"([^\"]+)\"|“([^”]+)”|﴿([^﴾]+)﴾
 class Claim:
     text: str
     passage_ids: tuple[str, ...]
+    school: str = ""  # set for a scholar's or school's view; must be named in the cited passage
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,10 @@ def verify(claims: list[Claim], corpus: Corpus,
                if not any(collapse_spaces(q) in text for text in cited)]
         if bad:
             rejected.append(Rejected(claim, f"quotation not found verbatim: {bad}"))
+            continue
+        if claim.school and not any(normalize(claim.school) in normalize(corpus.passage(pid).text)
+                                    for pid in claim.passage_ids):
+            rejected.append(Rejected(claim, f"'{claim.school}' is not named in the cited passage"))
             continue
         kept.append(claim)
     return kept, rejected
