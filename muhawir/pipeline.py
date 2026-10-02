@@ -10,6 +10,7 @@ import os
 from dataclasses import asdict, dataclass, field
 
 from . import classify
+from .asbab import AsbabIndex
 from .corpus import Corpus
 from .generate import Generator
 from .messages import LANGS, STYLES, TEXT
@@ -44,6 +45,14 @@ class Muhawir:
         self.corpus = corpus
         self.retriever = retriever or Retriever(corpus)
         self.generator = generator
+        self.asbab = AsbabIndex(corpus, self.retriever)
+
+    def _abstain(self, question: str, t: dict, synthetic: bool) -> Response:
+        """General abstain, or a precise one when the reasons-of-revelation source has no entry."""
+        missing = self.asbab.missing(question)
+        if missing:
+            return Response(ABSTAINED, t["no_reason"][missing["what"]].format(**missing), synthetic=synthetic)
+        return Response(ABSTAINED, t["abstain"], synthetic=synthetic)
 
     def _cards(self, passage_ids: list[str]) -> list[dict]:
         cards = []
@@ -87,21 +96,22 @@ class Muhawir:
         if not passages:
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
-            return Response(ABSTAINED, t["abstain"], synthetic=synthetic)
+            return self._abstain(question, t, synthetic)
 
         allowed = {p.id for p in passages}
         kept, _rejected = verify(
             self.generator.generate(question, passages, style, lang, personal=personal),
             self.corpus, allowed)
         if not kept:
-            status = REFERRED if gate.kind == classify.PERSONAL_CASE else ABSTAINED
-            return Response(status, t["personal_case" if status == REFERRED else "abstain"],
-                            synthetic=synthetic)
+            if personal:
+                return Response(REFERRED, t["personal_case"], synthetic=synthetic)
+            return self._abstain(question, t, synthetic)
 
         answer = [c for c in kept if not c.school]
         if not answer:  # views alone, without a sourced answer, are not shown
-            status = REFERRED if personal else ABSTAINED
-            return Response(status, t["personal_case" if personal else "abstain"], synthetic=synthetic)
+            if personal:
+                return Response(REFERRED, t["personal_case"], synthetic=synthetic)
+            return self._abstain(question, t, synthetic)
         claims = [{"text": c.text, "passage_ids": list(c.passage_ids)} for c in answer]
         views = [{"school": c.school, "text": c.text, "passage_ids": list(c.passage_ids)}
                  for c in kept if c.school]

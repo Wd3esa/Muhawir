@@ -7,6 +7,8 @@ TEXT = {
     "ar": {
         "abstain": "لم أجد في المصادر المعتمدة المتاحة لي ما يجيب عن هذا السؤال. "
                    "يمكنك سؤال مختص في العلم الشرعي.",
+        "no_reason": {"ayah": "لم يُذكر لهذه الآية ({where}) سبب نزول في مصدر أسباب النزول المعتمد لدي: «{source}».",
+                      "surah": "لم يُذكر ل{where} سبب نزول في مصدر أسباب النزول المعتمد لدي: «{source}»."},
         "personal_case": "سؤالك عن حالة شخصية، والحكم فيها يحتاج فتوى من مختص يسمع تفاصيلها. "
                          "أنصحك بسؤال جهة فتوى مؤهلة في بلدك.",
         "personal_case_info": "هذه معلومات عامة من المصادر، وليست حكمًا في حالتك:",
@@ -23,6 +25,8 @@ TEXT = {
         "abstain": "I could not find anything in the approved sources available to me that answers "
                    "this question. "
                    "You may ask a qualified scholar.",
+        "no_reason": {"ayah": "The reasons-of-revelation source I rely on, «{source}», records no reason of revelation for this ayah ({where}).",
+                      "surah": "The reasons-of-revelation source I rely on, «{source}», records no reason of revelation for {where}."},
         "personal_case": "Your question is about a personal situation. A ruling on it needs a fatwa "
                          "from a qualified scholar who hears the details. Please ask a qualified "
                          "fatwa body in your country.",
