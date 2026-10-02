@@ -49,6 +49,16 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
+نص القرآن (اختياري، من بيانات الموسوعة القرآنية): نزّل `mushafs-all.zip` من https://quranpedia.net/dumps، ثم:
+
+```bash
+unzip mushafs-all.zip -d data/dumps
+python -m muhawir.quranpedia data/dumps/mushafs-1.json.gz -o data/quran_corpus.json
+MUHAWIR_CORPUS=data/quran_corpus.json uvicorn muhawir.server:app --port 8000
+```
+
+النص لا يُحفظ في المستودع (انظر SOURCES.md). تنبيه: مع البحث بالكلمات وبلا نموذج لغوي قد تُعرض آيات تشترك مع السؤال في لفظ دون أن تجيب عنه، فلا يُعرض هذا الوضع على المستخدمين قبل إضافة فهرس الموضوعات والنموذج.
+
 الإعدادات في متغيرات بيئة (انظر `.env.example`): `LLM_PROVIDER` و`MUHAWIR_CORPUS`. لا تُكتب المفاتيح في الشيفرة.
 
 ## بنية الشيفرة
@@ -62,6 +72,7 @@ python -m pytest -q
 | `muhawir/generate.py` | المولّد: الاقتباس الحرفي الآن، ونموذج لغوي بعد القرار D1 |
 | `muhawir/verify.py` | المدقق: كل ادعاء يُسند إلى مقطع مسترجع، وكل اقتباس يطابق المقطع حرفيًا |
 | `muhawir/pipeline.py` | التسلسل: القواعد ثم الاسترجاع ثم التوليد ثم التدقيق ثم بطاقة المصدر |
+| `muhawir/quranpedia.py` | مستورد نص القرآن من ملف بيانات الموسوعة القرآنية، يحفظ النص حرفيًا مع السورة والآية ونسخة البيانات |
 | `muhawir/server.py` | واجهة HTTP (`/api/ask` و`/api/health`) والصفحة |
 | `muhawir/static/index.html` | واجهة المستخدم بالعربية والإنجليزية |
 | `tests/` | الاختبارات، على البيانات المصطنعة فقط |
