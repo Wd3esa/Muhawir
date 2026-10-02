@@ -12,6 +12,7 @@ as fallback. Keys come only from environment variables.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Callable, Protocol
 
@@ -71,6 +72,17 @@ EXPAND_SCHEMA = {
     "required": ["queries"],
     "additionalProperties": False,
 }
+
+log = logging.getLogger("muhawir")
+
+
+def describe(exc: Exception) -> str:
+    """Short reason for a failed model call, for the server log (never the question text)."""
+    response = getattr(exc, "response", None)
+    if response is not None:
+        return f"HTTP {response.status_code}: {response.text[:300]}"
+    return f"{type(exc).__name__}: {exc}"[:300]
+
 
 KIND_AR = {"quran": "آية", "tafsir": "تفسير", "hadith": "حديث", "fiqh": "فقه",
            "aqeedah": "عقيدة", "seerah": "سيرة", "other": "نص"}
@@ -156,7 +168,8 @@ class ModelGenerator:
             try:
                 raw = call(EXPAND_PROMPT, f"<<<{question}>>>", EXPAND_SCHEMA)
                 queries = json.loads(raw).get("queries", [])
-            except Exception:
+            except Exception as exc:
+                log.warning("model %s failed (search phrases): %s", _name, describe(exc))
                 continue
             return [q.strip() for q in queries if isinstance(q, str) and q.strip()][:3]
         return []
@@ -167,10 +180,14 @@ class ModelGenerator:
         for name, call in self.calls:
             try:
                 raw = call(SYSTEM_PROMPT, user, SCHEMA)
-            except Exception:  # network, quota, timeout: try the fallback
+            except Exception as exc:  # network, quota, timeout, wrong model name: try the fallback
+                log.warning("model %s failed (answer): %s", name, describe(exc))
                 continue
             self.last_used = name
-            return parse_draft(raw)
+            claims = parse_draft(raw)
+            if not claims:
+                log.info("model %s abstained or returned an unusable draft", name)
+            return claims
         self.last_used = ""
         return []
 

@@ -188,3 +188,9 @@ def test_parse_draft_reads_views():
     claims = parse_draft(json.dumps({"abstain": False, "claims": [ANSWER], "views": [
         {"school": "س", "text": "ق", "passage_ids": ["v1"]}]}))
     assert [c.school for c in claims] == ["", "س"]
+
+
+def test_failed_call_is_logged_without_the_question(caplog):
+    caplog.set_level("WARNING", logger="muhawir")
+    engine(RuntimeError("model not found")).ask(QUESTION)
+    assert "model not found" in caplog.text and QUESTION not in caplog.text
