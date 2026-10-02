@@ -5,7 +5,7 @@ STYLES = ("kids", "youth", "extended", "newcomer")
 
 TEXT = {
     "ar": {
-        "abstain": "لم أجد في المصادر المعتمدة المتاحة لي ما يجيب عن هذا السؤال، فلن أجيب عنه من عندي. "
+        "abstain": "لم أجد في المصادر المعتمدة المتاحة لي ما يجيب عن هذا السؤال. "
                    "يمكنك سؤال مختص في العلم الشرعي.",
         "personal_case": "سؤالك عن حالة شخصية، والحكم فيها يحتاج فتوى من مختص يسمع تفاصيلها. "
                          "أنصحك بسؤال جهة فتوى مؤهلة في بلدك.",
@@ -21,7 +21,7 @@ TEXT = {
     },
     "en": {
         "abstain": "I could not find anything in the approved sources available to me that answers "
-                   "this question, so I will not answer it from my own knowledge. "
+                   "this question. "
                    "You may ask a qualified scholar.",
         "personal_case": "Your question is about a personal situation. A ruling on it needs a fatwa "
                          "from a qualified scholar who hears the details. Please ask a qualified "
