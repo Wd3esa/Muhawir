@@ -18,3 +18,5 @@ build/
 # نصوص المصادر المولّدة من ملفات البيانات (لا تُرفع، انظر SOURCES.md)
 data/quran_corpus.json
 data/dumps/
+data/muhawir.db
+data/*.tmp

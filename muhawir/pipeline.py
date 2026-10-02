@@ -13,10 +13,10 @@ from .corpus import Corpus
 from .generate import Generator
 from .messages import LANGS, STYLES, TEXT
 from .retrieve import Retriever, is_sufficient
+from .verify import verify
 
 MODEL_CANDIDATES = 8      # passages offered to the model, which judges relevance itself
 MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
-from .verify import verify
 
 MAX_QUESTION_CHARS = 500
 
@@ -38,9 +38,9 @@ class Response:
 
 
 class Muhawir:
-    def __init__(self, corpus: Corpus, generator: Generator) -> None:
+    def __init__(self, corpus: Corpus, generator: Generator, retriever=None) -> None:
         self.corpus = corpus
-        self.retriever = Retriever(corpus)
+        self.retriever = retriever or Retriever(corpus)
         self.generator = generator
 
     def _cards(self, passage_ids: list[str]) -> list[dict]:

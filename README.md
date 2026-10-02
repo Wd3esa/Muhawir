@@ -49,16 +49,17 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-نص القرآن (اختياري، من بيانات الموسوعة القرآنية): نزّل `mushafs-all.zip` و`topics.json.gz` (موضوعات الآيات) من https://quranpedia.net/dumps، ثم:
+بيانات المصادر (القرآن وموضوعات الآيات وتفسير الطبري من الموسوعة القرآنية quranpedia.net) تُبنى في قاعدة SQLite عند النشر، ولا تُحفظ في المستودع:
 
 ```bash
-unzip mushafs-all.zip -d data/dumps
-python -m muhawir.quranpedia data/dumps/mushafs-1.json.gz --topics data/dumps/topics.json.gz \
-    --tafsir data/dumps/tafsir-book-<id>.json.gz -o data/quran_corpus.json
-MUHAWIR_CORPUS=data/quran_corpus.json uvicorn muhawir.server:app --port 8000
+python -m muhawir.build_data --download          # ينزّل الملفات ويبني data/muhawir.db
+# أو إن كانت الملفات منزّلة: python -m muhawir.build_data --from-dir data/dumps
+uvicorn muhawir.server:app --port 8000           # يستعمل data/muhawir.db تلقائيًا إن وُجدت
 ```
 
-النص لا يُحفظ في المستودع (انظر SOURCES.md). أسماء الموضوعات تُستعمل في البحث فقط، والنص المعروض هو الآية حرفيًا. تنبيه: مع البحث بالكلمات وبلا نموذج لغوي قد تُعرض آيات تشترك مع السؤال في لفظ أو موضوع دون أن تجيب عنه، فلا يُعرض هذا الوضع على المستخدمين قبل ربط النموذج.
+البناء يستغرق نحو 15 ثانية، والخادم يستهلك ذاكرة قليلة لأن البحث يجري من القرص (SQLite FTS5). أسماء الموضوعات تُستعمل في البحث فقط، والنص المعروض في بطاقة المصدر هو نص المصدر حرفيًا.
+
+**النشر على أي استضافة:** أمر البناء `pip install -r requirements.txt && python -m muhawir.build_data --download`، وأمر التشغيل `uvicorn muhawir.server:app --host 0.0.0.0 --port $PORT`، والمتغيرات `LLM_PROVIDER=model` و`ANTHROPIC_API_KEY` في إعدادات الاستضافة لا في المستودع.
 
 وضع النموذج: `LLM_PROVIDER=model` مع `ANTHROPIC_API_KEY` (وبديل اختياري `GEMINI_API_KEY` و`GEMINI_MODEL`). النموذج يحوّل السؤال إلى عبارات بحث، ثم يكتب الجواب من المقاطع المسترجعة فقط ويسند كل جملة إلى رقم مقطع، ولا ينقل نص الآيات بنفسه: النص يُعرض حرفيًا في بطاقة المصدر. المدقق يرفض أي إسناد إلى مقطع لم يُسترجع وأي اقتباس لا يطابق المصدر، وعند أي خطأ يمتنع النظام.
 
@@ -76,6 +77,8 @@ MUHAWIR_CORPUS=data/quran_corpus.json uvicorn muhawir.server:app --port 8000
 | `muhawir/verify.py` | المدقق: كل ادعاء يُسند إلى مقطع مسترجع، وكل اقتباس يطابق المقطع حرفيًا |
 | `muhawir/pipeline.py` | التسلسل: القواعد ثم الاسترجاع ثم التوليد ثم التدقيق ثم بطاقة المصدر |
 | `muhawir/quranpedia.py` | مستورد القرآن وموضوعات الآيات وكتاب تفسير من بيانات الموسوعة القرآنية، يحفظ النص حرفيًا مع الموضع ونسخة البيانات |
+| `muhawir/store.py` | قاعدة SQLite للمقاطع والبحث (FTS5) بالواجهة نفسها، لتقليل الذاكرة |
+| `muhawir/build_data.py` | تنزيل ملفات الموسوعة القرآنية وبناء القاعدة عند النشر |
 | `muhawir/server.py` | واجهة HTTP (`/api/ask` و`/api/health`) والصفحة |
 | `muhawir/static/index.html` | واجهة المستخدم بالعربية والإنجليزية |
 | `tests/` | الاختبارات، على البيانات المصطنعة فقط |

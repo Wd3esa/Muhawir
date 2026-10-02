@@ -7,6 +7,7 @@
 | FastAPI | 0.142.2 | واجهة HTTP | MIT | https://github.com/fastapi/fastapi |
 | Starlette (عبر FastAPI) | 1.0.0 | خادم الويب | BSD-3-Clause | https://github.com/encode/starlette |
 | Pydantic (عبر FastAPI) | 2.13.3 | التحقق من المدخلات | MIT | https://github.com/pydantic/pydantic |
+| SQLite (عبر مكتبة Python القياسية) | 3.45 | تخزين المقاطع والبحث النصي FTS5 | ملكية عامة (Public Domain) | https://sqlite.org/copyright.html |
 | HTTPX | 0.28.1 | الاتصال بواجهة النموذج | BSD-3-Clause | https://github.com/encode/httpx |
 | Uvicorn | 0.46.0 | تشغيل الخادم | BSD-3-Clause | https://github.com/encode/uvicorn |
 | pytest (للتطوير) | 9.1.1 | الاختبارات | MIT | https://github.com/pytest-dev/pytest |

@@ -15,12 +15,21 @@ from pydantic import BaseModel, Field
 from .corpus import load_corpus
 from .generate import get_generator
 from .pipeline import MAX_QUESTION_CHARS, Muhawir
+from .store import SqliteCorpus, SqliteRetriever
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_CORPUS = ROOT.parent / "data" / "synthetic_corpus.json"
 
 
+DEFAULT_DB = ROOT.parent / "data" / "muhawir.db"
+
+
 def build() -> Muhawir:
+    """Use the SQLite database when it exists (built by muhawir.build_data), else a JSON corpus."""
+    db = Path(os.environ.get("MUHAWIR_DB") or DEFAULT_DB)
+    if db.exists() and not os.environ.get("MUHAWIR_CORPUS"):
+        corpus = SqliteCorpus(db)
+        return Muhawir(corpus, get_generator(), SqliteRetriever(corpus))
     corpus = load_corpus(os.environ.get("MUHAWIR_CORPUS") or DEFAULT_CORPUS)
     return Muhawir(corpus, get_generator())
 
