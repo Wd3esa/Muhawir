@@ -13,6 +13,9 @@ from .corpus import Corpus
 from .generate import Generator
 from .messages import LANGS, STYLES, TEXT
 from .retrieve import Retriever, is_sufficient
+
+MODEL_CANDIDATES = 8      # passages offered to the model, which judges relevance itself
+MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
 from .verify import verify
 
 MAX_QUESTION_CHARS = 500
@@ -65,16 +68,29 @@ class Muhawir:
         if gate.kind in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
             return Response(DECLINED, t[gate.kind], synthetic=synthetic)
 
-        hits = self.retriever.search(question)
-        if not is_sufficient(hits):
-            if gate.kind == classify.PERSONAL_CASE:
+        personal = gate.kind == classify.PERSONAL_CASE
+        if self.generator.strict_retrieval:
+            hits = self.retriever.search(question)
+            passages = [h.passage for h in hits if is_sufficient([h])]
+        else:
+            best: dict[str, object] = {}
+            expand = getattr(self.generator, "expand", None)
+            for query in [question] + (expand(question) if expand else []):
+                for h in self.retriever.search(query, k=MODEL_CANDIDATES):
+                    if h.coverage >= MODEL_MIN_COVERAGE and (
+                            h.passage.id not in best or h.score > best[h.passage.id].score):
+                        best[h.passage.id] = h
+            ranked = sorted(best.values(), key=lambda h: h.score, reverse=True)
+            passages = [h.passage for h in ranked[:MODEL_CANDIDATES]]
+        if not passages:
+            if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
             return Response(ABSTAINED, t["abstain"], synthetic=synthetic)
 
-        passages = [h.passage for h in hits if is_sufficient([h])]
         allowed = {p.id for p in passages}
         kept, _rejected = verify(
-            self.generator.generate(question, passages, style, lang), self.corpus, allowed)
+            self.generator.generate(question, passages, style, lang, personal=personal),
+            self.corpus, allowed)
         if not kept:
             status = REFERRED if gate.kind == classify.PERSONAL_CASE else ABSTAINED
             return Response(status, t["personal_case" if status == REFERRED else "abstain"],

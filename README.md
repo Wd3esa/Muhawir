@@ -53,13 +53,16 @@ python -m pytest -q
 
 ```bash
 unzip mushafs-all.zip -d data/dumps
-python -m muhawir.quranpedia data/dumps/mushafs-1.json.gz --topics data/dumps/topics.json.gz -o data/quran_corpus.json
+python -m muhawir.quranpedia data/dumps/mushafs-1.json.gz --topics data/dumps/topics.json.gz \
+    --tafsir data/dumps/tafsir-book-<id>.json.gz -o data/quran_corpus.json
 MUHAWIR_CORPUS=data/quran_corpus.json uvicorn muhawir.server:app --port 8000
 ```
 
 النص لا يُحفظ في المستودع (انظر SOURCES.md). أسماء الموضوعات تُستعمل في البحث فقط، والنص المعروض هو الآية حرفيًا. تنبيه: مع البحث بالكلمات وبلا نموذج لغوي قد تُعرض آيات تشترك مع السؤال في لفظ أو موضوع دون أن تجيب عنه، فلا يُعرض هذا الوضع على المستخدمين قبل ربط النموذج.
 
-الإعدادات في متغيرات بيئة (انظر `.env.example`): `LLM_PROVIDER` و`MUHAWIR_CORPUS`. لا تُكتب المفاتيح في الشيفرة.
+وضع النموذج: `LLM_PROVIDER=model` مع `ANTHROPIC_API_KEY` (وبديل اختياري `GEMINI_API_KEY` و`GEMINI_MODEL`). النموذج يحوّل السؤال إلى عبارات بحث، ثم يكتب الجواب من المقاطع المسترجعة فقط ويسند كل جملة إلى رقم مقطع، ولا ينقل نص الآيات بنفسه: النص يُعرض حرفيًا في بطاقة المصدر. المدقق يرفض أي إسناد إلى مقطع لم يُسترجع وأي اقتباس لا يطابق المصدر، وعند أي خطأ يمتنع النظام.
+
+الإعدادات كلها في متغيرات بيئة (انظر `.env.example`). لا تُكتب المفاتيح في الشيفرة.
 
 ## بنية الشيفرة
 
@@ -69,10 +72,10 @@ MUHAWIR_CORPUS=data/quran_corpus.json uvicorn muhawir.server:app --port 8000
 | `muhawir/corpus.py` | المصادر والمقاطع وفحص صحة ملف المقاطع، ولكل مصدر سطر يعرّف به |
 | `muhawir/classify.py` | قواعد ثابتة توقف الحالة الشخصية (المستوى د) والحكم على الأشخاص ومحاولات تجاوز الضوابط |
 | `muhawir/retrieve.py` | بحث BM25 بالكلمات، وفحص كفاية المقطع قبل أي جواب |
-| `muhawir/generate.py` | المولّد: الاقتباس الحرفي الآن، ونموذج لغوي بعد القرار D1 |
+| `muhawir/generate.py` | المولّد: الاقتباس الحرفي، أو نموذج لغوي (Claude ثم Gemini احتياطيًا) بتعليمات ثابتة وإخراج JSON |
 | `muhawir/verify.py` | المدقق: كل ادعاء يُسند إلى مقطع مسترجع، وكل اقتباس يطابق المقطع حرفيًا |
 | `muhawir/pipeline.py` | التسلسل: القواعد ثم الاسترجاع ثم التوليد ثم التدقيق ثم بطاقة المصدر |
-| `muhawir/quranpedia.py` | مستورد نص القرآن من ملف بيانات الموسوعة القرآنية، يحفظ النص حرفيًا مع السورة والآية ونسخة البيانات |
+| `muhawir/quranpedia.py` | مستورد القرآن وموضوعات الآيات وكتاب تفسير من بيانات الموسوعة القرآنية، يحفظ النص حرفيًا مع الموضع ونسخة البيانات |
 | `muhawir/server.py` | واجهة HTTP (`/api/ask` و`/api/health`) والصفحة |
 | `muhawir/static/index.html` | واجهة المستخدم بالعربية والإنجليزية |
 | `tests/` | الاختبارات، على البيانات المصطنعة فقط |

@@ -82,3 +82,19 @@ def test_topics_become_search_only_keywords():
     assert second.keywords == "موضوع أصل؛ موضوع فرعي"
     assert second.text == "نَصٌّ ثَانٍ ۚ"  # the quote itself is unchanged
     assert corpus.passage("q:1:1").keywords == ""
+
+
+def test_tafsir_passages_strip_markup_and_keep_wording():
+    text = '{١ - ٢} <span class="x">﴿نَصٌّ﴾</span> أي: شرح أول.<br />\rشرح &amp; ثانٍ.'
+    tafsir = {"license": {"version": "2026-08-10"},
+              "book": {"id": 3, "name": "كتاب", "short_name": "مختصر", "author": {"ar_name": "مؤلف"}},
+              "ayahs": [{"surah": 1, "ayah": 1, "content": [{"text": text, "part": 1, "page": 5}]},
+                        {"surah": 1, "ayah": 2, "content": [{"text": text, "part": 1, "page": 5}]}]}
+    corpus = parse_corpus(build_corpus(_dump(), expected_surahs=1, expected_ayahs=2,
+                                       tafsir_dump=tafsir))
+    tafsir_passages = [p for p in corpus.passages if p.kind == "tafsir"]
+    assert len(tafsir_passages) == 1  # one text covering two ayahs is stored once
+    p = tafsir_passages[0]
+    assert p.text == "{١ - ٢} ﴿نَصٌّ﴾ أي: شرح أول.\nشرح & ثانٍ."
+    assert p.location == "سورة أ، الآيات 1–2 (ج1، ص5)"
+    assert "2026-08-10" in corpus.sources["quranpedia-tafsir-3"].about

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from .corpus import Corpus
 from .normalize import collapse_spaces
 
-_QUOTES = re.compile(r"«([^»]+)»|\"([^\"]+)\"|“([^”]+)”")
+_QUOTES = re.compile(r"«([^»]+)»|\"([^\"]+)\"|“([^”]+)”|﴿([^﴾]+)﴾")
 
 
 @dataclass(frozen=True)
