@@ -7,6 +7,7 @@ stopped, and never answers when retrieval found nothing sufficient.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import asdict, dataclass, field
 
 from . import classify
@@ -38,6 +39,13 @@ class Response:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def _strip_ids(text: str, ids: set[str]) -> str:
+    """Remove passage ids a model wrote into the answer text; the source cards already show them."""
+    for pid in sorted(ids, key=len, reverse=True):
+        text = re.sub(rf"\s*[\[(]?(?<![\w:]){re.escape(pid)}(?![\w:])[\])]?", "", text)
+    return re.sub(r"\s+([.،,؛])", r"\1", text).strip()
 
 
 class Muhawir:
@@ -80,6 +88,11 @@ class Muhawir:
             return Response(DECLINED, t[gate.kind], synthetic=synthetic)
 
         personal = gate.kind == classify.PERSONAL_CASE
+        if not personal:  # decided before the model, so every style gets the same answer
+            missing = self.asbab.missing(question)
+            if missing:
+                return Response(ABSTAINED, t["no_reason"][missing["what"]].format(**missing),
+                                synthetic=synthetic)
         if self.generator.strict_retrieval:
             hits = self.retriever.search(question)
             passages = [h.passage for h in hits if is_sufficient([h])]
@@ -112,8 +125,8 @@ class Muhawir:
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
             return self._abstain(question, t, synthetic)
-        claims = [{"text": c.text, "passage_ids": list(c.passage_ids)} for c in answer]
-        views = [{"school": c.school, "text": c.text, "passage_ids": list(c.passage_ids)}
+        claims = [{"text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)} for c in answer]
+        views = [{"school": c.school, "text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)}
                  for c in kept if c.school]
         cards = self._cards([pid for c in answer + [v for v in kept if v.school] for pid in c.passage_ids])
         note = t["translation_pending"] if lang == "en" and self.generator.name == "extractive" else ""

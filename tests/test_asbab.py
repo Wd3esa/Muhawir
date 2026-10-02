@@ -45,3 +45,21 @@ def test_surah_with_entries_keeps_general_message():
 
 def test_other_questions_keep_general_message():
     assert engine().ask("ما معنى سحاب ثقيل يحمل المطر").message.startswith("لم أجد")
+
+
+def test_missing_entry_is_decided_before_the_model_so_every_style_agrees():
+    calls = []
+
+    def answers(system, user, schema=None):
+        calls.append(user)
+        if "queries" in json.dumps(schema or {}):
+            return json.dumps({"queries": []})
+        return json.dumps({"abstain": False, "claims": [{"text": "نور.", "passage_ids": ["q:1:1"]}]})
+    m = Muhawir(parse_corpus(DATA), ModelGenerator([("m", answers)]))
+    msgs = {m.ask("سبب نزول سورة الشمس؟", style=s).message for s in ("kids", "youth", "extended", "newcomer")}
+    assert len(msgs) == 1 and next(iter(msgs)).startswith("لم يُذكر لسورة الشمس") and calls == []
+
+
+def test_prompt_says_place_or_time_of_revelation_is_not_a_reason():
+    from muhawir.generate import SYSTEM_PROMPT
+    assert "سبب نزول" in SYSTEM_PROMPT and "مكان النزول" in SYSTEM_PROMPT

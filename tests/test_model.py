@@ -261,3 +261,9 @@ def test_open_model_selected_from_environment(monkeypatch):
     monkeypatch.setenv("OPENAI_COMPAT_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setenv("OPENAI_COMPAT_MODEL", "qwen")
     assert get_generator().name == "open-model"
+
+
+def test_passage_ids_written_in_the_answer_are_hidden():
+    res = engine({"abstain": False, "claims": [
+        {"text": "تحتاج النخلة إلى ماء كثير [test-a:1].", "passage_ids": ["test-a:1"]}]}).ask(QUESTION)
+    assert res.claims[0]["text"] == "تحتاج النخلة إلى ماء كثير."
