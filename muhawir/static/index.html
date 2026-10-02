@@ -91,14 +91,14 @@
 const UI = {
   ar: { lang: "اللغة", tagline: "يجيب عن أسئلة الإسلام من مصادر معتمدة فقط، ويذكر مصدر كل جواب، ويحيلك إلى مختص عند غياب المرجعية أو طلب فتوى شخصية.",
         qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
-        views: "أقوال العلماء كما وردت في المصادر (دون ترجيح)",
+        views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
         source: "المصدر", topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "" } },
   en: { lang: "Language", tagline: "Answers questions about Islam only from approved sources, states the source of every answer, and refers you to a specialist when no authoritative source exists or when you ask for a personal fatwa.",
         qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
-        views: "Scholars' views as stated in the sources (no preference given)",
+        views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
         source: "Source", topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
@@ -131,7 +131,7 @@ function render(res, style) {
   $("synthetic").hidden = !res.synthetic;
   const msg = el("div", "msg");
   if (t.status[res.status]) msg.append(el("div", "status", t.status[res.status]));
-  msg.append(el("div", "", res.message));
+  if (res.message) msg.append(el("div", "", res.message));
   const quoted = new Set((res.sources || []).map((s) => `«${s.quote}»`));
   // A claim that only repeats a passage word for word is already shown in its source card.
   const shown = new Set();  // passages whose text is itself the answer stay open

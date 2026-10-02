@@ -167,10 +167,10 @@ def test_invalid_input(engine):
     assert engine.ask("س" * 501).status == INVALID
 
 
-def test_style_changes_framing_only(engine):
+def test_answer_starts_directly_without_intro_line(engine):
     kids = engine.ask("ماذا تحتاج النخلة في الصيف؟", style="kids")
     ext = engine.ask("ماذا تحتاج النخلة في الصيف؟", style="extended")
-    assert kids.message != ext.message and kids.claims == ext.claims
+    assert kids.message == ext.message == "" and kids.claims == ext.claims
 
 
 def test_english_interface(engine):

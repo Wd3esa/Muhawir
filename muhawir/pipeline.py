@@ -110,4 +110,4 @@ class Muhawir:
         if gate.kind == classify.PERSONAL_CASE:
             message = t["personal_case"] + "\n" + t["personal_case_info"]
             return Response(REFERRED, message, claims, cards, synthetic, note, views)
-        return Response(ANSWERED, t["intro"][style], claims, cards, synthetic, note, views)
+        return Response(ANSWERED, "", claims, cards, synthetic, note, views)
