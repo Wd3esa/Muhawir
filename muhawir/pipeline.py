@@ -26,8 +26,9 @@ MAX_HADITH = 3  # live hadith results offered to the model, in addition to the p
 
 MAX_QUESTION_CHARS = 500
 
-ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT = (
-    "answered", "abstained", "referred", "declined", "invalid", "chat")
+ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE = (
+    "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable")
+ALL_MODELS_FAILED = "every model call failed"
 DEBUG = os.environ.get("MUHAWIR_DEBUG") == "1"  # adds the reason for not answering to each response
 log = logging.getLogger("muhawir")
 MAX_HISTORY_TURNS = 6
@@ -209,13 +210,16 @@ class Muhawir:
         if hasattr(self.generator, "last_note"):
             self.generator.last_note = self.generator.last_raw = ""
         draft = self.generator.generate(question, passages, style, lang, personal=personal)
+        if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
+            # the model could not be reached: say so honestly instead of "nothing found in the sources"
+            return self._why(Response(UNAVAILABLE, t["unavailable"], synthetic=synthetic), ALL_MODELS_FAILED)
         kept, rejected = verify(draft, corpus, allowed)
         check = getattr(self.generator, "check_support", None)
         if kept and check:  # second reading against the cited passages; fail closed if it cannot run
             flags = check(kept, {p.id: p for p in passages})
-            if flags is None:
-                rejected += [Rejected(c, "support check could not run") for c in kept]
-                kept = []
+            if flags is None:  # the check could not run: show nothing unchecked, and say why honestly
+                return self._why(Response(UNAVAILABLE, t["unavailable"], synthetic=synthetic),
+                                 "support check could not run")
             else:
                 rejected += [Rejected(c, "not supported by the cited passage") for c, ok in zip(kept, flags) if not ok]
                 kept = [c for c, ok in zip(kept, flags) if ok]

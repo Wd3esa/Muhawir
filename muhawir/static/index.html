@@ -116,7 +116,7 @@ const UI = {
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
         topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", sources: "المصادر", source: "المصدر", verify: "تحقق في الدرر السنية", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
-        status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "", chat: "" } },
+        status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "", chat: "", unavailable: "" } },
   en: { lang: "Language", tagline: "Helps you answer your questions about Islam, fiqh and creed from approved, trusted sources, and refers you to a specialist when you ask for a fatwa.",
         qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
         style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
@@ -126,7 +126,7 @@ const UI = {
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
         topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", sources: "Sources", source: "Source", verify: "Check on dorar.net", open: "Open source", error: "Could not connect. Please try again.",
-        status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "", chat: "" } }
+        status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "", chat: "", unavailable: "" } }
 };
 const $ = (id) => document.getElementById(id);
 let lang = "ar";

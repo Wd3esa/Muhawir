@@ -354,7 +354,7 @@ class ModelGenerator:
                 self.last_raw = raw[:300]
             return claims
         self.last_used = ""
-        self.last_note = "every model call failed"
+        self.last_note = "every model call failed"  # pipeline.ALL_MODELS_FAILED
         return []
 
 
@@ -366,7 +366,7 @@ def anthropic_call(api_key: str, model: str, timeout: float = 60.0) -> ModelCall
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
-            json={"model": model, "max_tokens": 1500, "system": system,
+            json={"model": model, "max_tokens": 2048, "system": system,
                   "messages": [{"role": "user", "content": user}],
                   "output_config": {"format": {"type": "json_schema", "schema": schema}}},
             timeout=timeout)

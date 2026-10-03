@@ -7,7 +7,7 @@ import pytest
 from muhawir import generate
 from muhawir.corpus import load_corpus
 from muhawir.generate import ModelGenerator, build_user_prompt, get_generator, parse_draft
-from muhawir.pipeline import ABSTAINED, ANSWERED, REFERRED, Muhawir
+from muhawir.pipeline import ABSTAINED, ANSWERED, REFERRED, UNAVAILABLE, Muhawir
 
 CORPUS = load_corpus(Path(__file__).resolve().parent.parent / "data" / "synthetic_corpus.json")
 QUESTION = "ماذا تحتاج النخلة في الصيف؟"
@@ -70,8 +70,9 @@ def test_fallback_used_when_primary_fails():
     assert res.status == ANSWERED and gen.last_used == "gemini"
 
 
-def test_all_models_failing_means_abstain():
-    assert engine(RuntimeError("a"), RuntimeError("b")).ask(QUESTION).status == ABSTAINED
+def test_all_models_failing_says_unavailable_not_abstain():
+    res = engine(RuntimeError("a"), RuntimeError("b")).ask(QUESTION)
+    assert res.status == UNAVAILABLE and res.claims == [] and "غير متاحة مؤقتًا" in res.message
 
 
 def test_personal_case_with_model_is_referred_and_prompt_says_so():
@@ -328,13 +329,15 @@ def test_sentence_not_supported_by_its_passage_is_dropped():
 @pytest.mark.real_check
 def test_failed_support_check_fails_closed():
     m, _ = _checker(TWO, RuntimeError("down"))
-    assert m.ask(QUESTION).status == ABSTAINED
+    res = m.ask(QUESTION)
+    assert res.status == UNAVAILABLE and res.claims == []  # nothing unchecked is shown
 
 
 @pytest.mark.real_check
 def test_wrong_number_of_verdicts_fails_closed():
     m, _ = _checker(TWO, [True])
-    assert m.ask(QUESTION).status == ABSTAINED
+    res = m.ask(QUESTION)
+    assert res.status == UNAVAILABLE and res.claims == []
 
 
 def test_prose_answer_with_ids_becomes_claims():
