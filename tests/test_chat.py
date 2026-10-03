@@ -172,3 +172,8 @@ def test_rules_ask_for_lists_and_plain_modern_wording():
     from muhawir.generate import SCHEMA, SYSTEM_PROMPT
     assert "as_list" in SCHEMA["required"] and "أنواع" in SYSTEM_PROMPT
     assert "فضلات الأموال" in SYSTEM_PROMPT and "لا تقدّمه تعريفًا عامًا" in SYSTEM_PROMPT
+
+
+def test_hadith_answers_start_by_attributing_to_the_prophet():
+    from muhawir.generate import SYSTEM_PROMPT
+    assert "أخبرنا النبي ﷺ" in SYSTEM_PROMPT and "يخبرنا الله تعالى" in SYSTEM_PROMPT
