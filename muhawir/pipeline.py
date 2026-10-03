@@ -23,8 +23,10 @@ MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decid
 
 MAX_QUESTION_CHARS = 500
 
-ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID = (
-    "answered", "abstained", "referred", "declined", "invalid")
+ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT = (
+    "answered", "abstained", "referred", "declined", "invalid", "chat")
+MAX_HISTORY_TURNS = 6
+MAX_TURN_CHARS = 600
 
 
 @dataclass
@@ -36,6 +38,7 @@ class Response:
     synthetic: bool = False
     note: str = ""
     views: list[dict] = field(default_factory=list)  # scholars' views as named in the sources
+    understood: str = ""  # the follow-up question as rewritten for search, when it differs
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -72,7 +75,31 @@ class Muhawir:
                           "source_about": s.about, "source_url": s.url})
         return cards
 
-    def ask(self, question: str, style: str = "youth", lang: str = "ar") -> Response:
+    def ask(self, question: str, style: str = "youth", lang: str = "ar",
+            history: list[dict] | None = None) -> Response:
+        """Answer one message. `history` (earlier turns) is used only to understand a follow-up;
+        the answer itself still comes from retrieved passages alone."""
+        question = (question or "").strip()
+        lang_ok = lang if lang in LANGS else "ar"
+        if question and len(question) <= MAX_QUESTION_CHARS and classify.is_small_talk(question):
+            return Response(CHAT, TEXT[lang_ok]["small_talk"], synthetic=self.corpus.synthetic)
+        turns = [{"role": t.get("role"), "text": str(t.get("text", ""))[:MAX_TURN_CHARS]}
+                 for t in (history or []) if isinstance(t, dict) and t.get("role") in ("user", "assistant")]
+        turns = turns[-MAX_HISTORY_TURNS:]
+        standalone = getattr(self.generator, "standalone", None)
+        understood = ""
+        if question and turns and standalone and len(question) <= MAX_QUESTION_CHARS:
+            gate = classify.check(question)  # the user's own words are checked before any rewrite
+            if gate.kind not in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
+                rewritten = standalone(question, turns)
+                if rewritten and rewritten != question:
+                    understood = rewritten
+        res = self._ask(understood or question, style, lang, original=question)
+        if understood and res.status not in (INVALID,):
+            res.understood = understood
+        return res
+
+    def _ask(self, question: str, style: str, lang: str, original: str = "") -> Response:
         lang = lang if lang in LANGS else "ar"
         style = style if style in STYLES else "youth"
         t = TEXT[lang]
@@ -84,6 +111,10 @@ class Muhawir:
             return Response(INVALID, t["too_long"], synthetic=synthetic)
 
         gate = classify.check(question)
+        if original and original != question:  # a rewritten follow-up: the user's own words decide too
+            own = classify.check(original)
+            if own.kind:
+                gate = own
         if gate.kind in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
             return Response(DECLINED, t[gate.kind], synthetic=synthetic)
 

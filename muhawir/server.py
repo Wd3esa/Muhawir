@@ -47,15 +47,22 @@ app = FastAPI(title="Muhawir", docs_url=None, redoc_url=None)
 engine = build()
 
 
+class Turn(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    text: str = Field(max_length=4000)
+
+
 class Ask(BaseModel):
     question: str = Field(max_length=MAX_QUESTION_CHARS * 2)
     style: str = "youth"
     lang: str = "ar"
+    history: list[Turn] = Field(default_factory=list, max_length=20)  # kept by the browser, not stored here
 
 
 @app.post("/api/ask")
 def ask(body: Ask) -> dict:
-    return engine.ask(body.question, body.style, body.lang).to_dict()
+    return engine.ask(body.question, body.style, body.lang,
+                      [t.model_dump() for t in body.history]).to_dict()
 
 
 @app.get("/api/health")

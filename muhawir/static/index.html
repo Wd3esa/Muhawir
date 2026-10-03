@@ -8,51 +8,62 @@
   :root {
     --bg: #f6f5f1; --panel: #ffffff; --ink: #1f2430; --muted: #5d6475;
     --line: #dedbd2; --accent: #1f6f5c; --accent-ink: #ffffff;
-    --warn-bg: #fff4dc; --warn-ink: #6b4a00; --card: #f2f7f5;
+    --warn-bg: #fff4dc; --warn-ink: #6b4a00; --card: #f2f7f5; --mine: #e6f0ec;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #15181d; --panel: #1d2128; --ink: #e9ebef; --muted: #a3a9b6;
       --line: #313743; --accent: #4fb69a; --accent-ink: #0d1512;
-      --warn-bg: #3a3017; --warn-ink: #f2d999; --card: #1b2a26;
+      --warn-bg: #3a3017; --warn-ink: #f2d999; --card: #1b2a26; --mine: #20302b;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 17px/1.7 "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 24px; min-height: 100vh;
+         display: flex; flex-direction: column; }
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   h1 { margin: 0; font-size: 30px; }
   .tag { color: var(--muted); margin: 4px 0 16px; }
   .banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px;
             padding: 10px 14px; margin-bottom: 16px; font-size: 15px; }
-  form { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-  textarea { width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--line);
-             border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--ink); background: var(--bg); }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
   label { color: var(--muted); font-size: 15px; }
   select { font: inherit; font-size: 15px; padding: 6px 8px; border-radius: 8px;
            border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
-  button { margin-inline-start: auto; font: inherit; font-weight: 600; padding: 8px 22px;
-           border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
-  button:disabled { opacity: .6; cursor: wait; }
-  #answer { margin-top: 20px; }
-  .msg { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; white-space: pre-line; }
+  #thread { flex: 1; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .empty { color: var(--muted); text-align: center; margin: 32px 0; }
+  .turn-user { align-self: flex-start; max-width: 85%; background: var(--mine); border-radius: 14px;
+               padding: 8px 14px; white-space: pre-line; }
+  .msg { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+         white-space: pre-line; }
+  .msg.pending { color: var(--muted); }
   .status { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-  .claim { margin: 10px 0 0; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
-  .card h3 { margin: 0; font-size: 16px; }
+  .understood { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .claim { margin: 6px 0 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
+  .card summary, .views summary { cursor: pointer; font-weight: 600; font-size: 16px; }
+  .card[open] summary, .views[open] summary { margin-bottom: 6px; }
   .card .about { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
   .card blockquote { margin: 0; padding-inline-start: 12px; border-inline-start: 3px solid var(--accent); }
   .card .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
   .note { color: var(--muted); font-size: 14px; margin-top: 10px; }
-  .views { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 12px; }
-  .views h3, .views summary { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
-  .card summary, .views summary { cursor: pointer; }
-  .card summary { font-weight: 600; font-size: 16px; }
-  .card[open] summary, .views[open] summary { margin-bottom: 6px; }
+  .views { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
   .view { margin: 6px 0; }
-  footer { color: var(--muted); font-size: 13px; margin-top: 28px; }
+  .tools { margin-top: 8px; }
+  .link-btn { font: inherit; font-size: 14px; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; }
+  form { position: sticky; bottom: 0; background: var(--panel); border: 1px solid var(--line);
+         border-radius: 14px; padding: 12px; }
+  textarea { width: 100%; min-height: 56px; resize: vertical; border: 1px solid var(--line);
+             border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--ink); background: var(--bg); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .send { margin-inline-start: auto; font: inherit; font-weight: 600; padding: 8px 22px;
+          border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  .send:disabled { opacity: .6; cursor: wait; }
+  .mic { font: inherit; font-size: 15px; padding: 7px 12px; border-radius: 10px; cursor: pointer;
+         border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .mic[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .voice-note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 12px; }
   a { color: var(--accent); }
 </style>
 </head>
@@ -68,9 +79,12 @@
   <p class="tag" data-t="tagline">يساعدك في إجابة أسئلتك عن الإسلام، الفقه والعقيدة من مصادر معتمدة وموثوقة، ويحيلك إلى مختص في حالة طلب فتوى.</p>
   <div class="banner" id="synthetic" hidden></div>
 
+  <section id="thread" aria-live="polite">
+    <p class="empty" id="empty" data-t="empty">اكتب سؤالك أو تحدّث، وسأجيبك من المصادر.</p>
+  </section>
+
   <form id="ask">
-    <label for="q" data-t="qlabel">سؤالك</label>
-    <textarea id="q" maxlength="500" required></textarea>
+    <textarea id="q" maxlength="500" required aria-label="سؤالك" placeholder="اكتب سؤالك هنا…"></textarea>
     <div class="row">
       <label for="style" data-t="style">أسلوب الشرح</label>
       <select id="style">
@@ -79,33 +93,42 @@
         <option value="extended" data-t="extended">موسّع</option>
         <option value="newcomer" data-t="newcomer">جديد على الإسلام</option>
       </select>
-      <button type="submit" data-t="send">اسأل</button>
+      <button type="button" class="mic" id="mic" aria-pressed="false" hidden>🎤 تحدّث</button>
+      <button type="submit" class="send" id="send" data-t="send">اسأل</button>
     </div>
+    <div class="voice-note" id="voiceNote" hidden data-t="voiceNote"></div>
   </form>
-
-  <section id="answer" aria-live="polite"></section>
 
   <footer data-t="disclaimer">مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.</footer>
 </main>
 <script>
 const UI = {
   ar: { lang: "اللغة", tagline: "يساعدك في إجابة أسئلتك عن الإسلام، الفقه والعقيدة من مصادر معتمدة وموثوقة، ويحيلك إلى مختص في حالة طلب فتوى.",
-        qlabel: "سؤالك", style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
+        qlabel: "سؤالك", placeholder: "اكتب سؤالك هنا…", empty: "اكتب سؤالك أو تحدّث، وسأجيبك من المصادر.",
+        style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
+        mic: "🎤 تحدّث", micStop: "⏹ إيقاف", voiceNote: "عند استعمال الميكروفون قد يرسل متصفحك صوتك إلى خدمة خارجية لتحويله إلى نص.",
+        listen: "🔊 استمع", stop: "⏹ إيقاف", pending: "أبحث في المصادر…", understood: "فهمت سؤالك هكذا: ",
         views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
-        source: "المصدر", topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
-        status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "" } },
+        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
+        status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "", chat: "" } },
   en: { lang: "Language", tagline: "Helps you answer your questions about Islam, fiqh and creed from approved, trusted sources, and refers you to a specialist when you ask for a fatwa.",
-        qlabel: "Your question", style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
+        qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
+        style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
+        mic: "🎤 Speak", micStop: "⏹ Stop", voiceNote: "When you use the microphone, your browser may send your voice to an outside service to turn it into text.",
+        listen: "🔊 Listen", stop: "⏹ Stop", pending: "Searching the sources…", understood: "I understood your question as: ",
         views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
-        source: "Source", topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
-        status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "" } }
+        topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
+        status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "", chat: "" } }
 };
 const $ = (id) => document.getElementById(id);
 let lang = "ar";
+const chatTurns = [];  // this conversation only: kept in this page, never stored on the server
+const MAX_HISTORY = 6;
+let recognizer = null, recognizing = false;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -119,18 +142,49 @@ function applyLang() {
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   document.querySelectorAll("[data-t]").forEach((n) => { n.textContent = t[n.dataset.t]; });
+  $("q").placeholder = t.placeholder;
+  $("q").setAttribute("aria-label", t.qlabel);
+  $("mic").textContent = recognizing ? t.micStop : t.mic;
   $("synthetic").textContent = t.synthetic;
 }
 
-// Short styles show the answer first; sources and views open on request, unchanged.
-function render(res, style) {
+// Muhawir's own words only: quoted ayahs, tafsir and hadith are never read by a computer voice.
+function spokenText(res) {
+  const parts = [];
+  if (res.message) parts.push(res.message);
+  for (const c of res.claims || []) if (!c.text.startsWith("«")) parts.push(c.text);
+  for (const v of res.views || []) parts.push(`${v.school}: ${v.text}`);
+  return parts.join("\n");
+}
+
+function listenButton(res) {
+  const text = spokenText(res);
+  if (!("speechSynthesis" in window) || !text) return null;
+  const speakLang = lang;
+  const btn = el("button", "link-btn", UI[speakLang].listen);
+  btn.type = "button";
+  btn.addEventListener("click", () => {
+    if (btn.dataset.playing) { speechSynthesis.cancel(); return; }
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = speakLang === "ar" ? "ar-SA" : "en-US";
+    const voice = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(speakLang));
+    if (voice) u.voice = voice;
+    const reset = () => { delete btn.dataset.playing; btn.textContent = UI[speakLang].listen; };
+    u.onend = reset; u.onerror = reset;
+    btn.dataset.playing = "1"; btn.textContent = UI[speakLang].stop;
+    speechSynthesis.speak(u);
+  });
+  return btn;
+}
+
+function renderAnswer(res, style) {
   const open = style === "extended";
   const t = UI[lang];
-  const box = $("answer");
-  box.replaceChildren();
   $("synthetic").hidden = !res.synthetic;
   const msg = el("div", "msg");
   if (t.status[res.status]) msg.append(el("div", "status", t.status[res.status]));
+  if (res.understood) msg.append(el("div", "understood", t.understood + res.understood));
   if (res.message) msg.append(el("div", "", res.message));
   const quoted = new Set((res.sources || []).map((s) => `«${s.quote}»`));
   // A claim that only repeats a passage word for word is already shown in its source card.
@@ -167,26 +221,88 @@ function render(res, style) {
     card.append(meta);
     msg.append(card);
   }
-  box.append(msg);
+  const listen = listenButton(res);
+  if (listen) { const tools = el("div", "tools"); tools.append(listen); msg.append(tools); }
+  return msg;
 }
 
+function remember(role, text) {
+  if (!text) return;
+  chatTurns.push({ role, text: text.slice(0, 600) });
+  while (chatTurns.length > MAX_HISTORY) chatTurns.shift();
+}
+
+function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }
+
 $("lang").addEventListener("change", (e) => { lang = e.target.value; applyLang(); });
+
 $("ask").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const btn = e.submitter || document.querySelector("button");
-  btn.disabled = true;
+  const question = $("q").value.trim();
+  if (!question) return;
+  stopListening();
+  const style = $("style").value;
+  const send = $("send");
+  send.disabled = true;
+  $("empty")?.remove();
+  $("thread").append(el("div", "turn-user", question));
+  const pending = el("div", "msg pending", UI[lang].pending);
+  $("thread").append(pending);
+  $("q").value = "";
+  scrollDown();
   try {
-    const style = $("style").value;
     const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: $("q").value, style, lang }) });
+      body: JSON.stringify({ question, style, lang, history: chatTurns }) });
     if (!r.ok) throw new Error(r.status);
-    render(await r.json(), style);
+    const res = await r.json();
+    pending.replaceWith(renderAnswer(res, style));
+    if (res.status !== "invalid" && res.status !== "chat") {
+      remember("user", res.understood || question);
+      remember("assistant", [res.message, ...(res.claims || []).map((c) => c.text)].filter(Boolean).join(" "));
+    }
   } catch {
-    $("answer").replaceChildren(el("div", "msg", UI[lang].error));
+    pending.replaceWith(el("div", "msg", UI[lang].error));
   } finally {
-    btn.disabled = false;
+    send.disabled = false;
+    scrollDown();
+    $("q").focus();
   }
 });
+
+$("q").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("ask").requestSubmit(); }
+});
+
+// Voice input: the browser's own speech recognition (Chrome, Edge, Safari). Hidden where unavailable.
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+function stopListening() { if (recognizer && recognizing) recognizer.stop(); }
+if (Recognition) {
+  $("mic").hidden = false;
+  $("voiceNote").hidden = false;
+  $("mic").addEventListener("click", () => {
+    if (recognizing) { stopListening(); return; }
+    recognizer = new Recognition();
+    recognizer.lang = lang === "ar" ? "ar-SA" : "en-US";
+    recognizer.interimResults = true;
+    recognizer.continuous = false;
+    const before = $("q").value.trim();
+    recognizer.onresult = (ev) => {
+      const said = Array.from(ev.results).map((r) => r[0].transcript).join(" ");
+      $("q").value = (before ? before + " " : "") + said;
+    };
+    const done = () => {
+      recognizing = false;
+      $("mic").setAttribute("aria-pressed", "false");
+      $("mic").textContent = UI[lang].mic;
+    };
+    recognizer.onend = done; recognizer.onerror = done;
+    recognizing = true;
+    $("mic").setAttribute("aria-pressed", "true");
+    $("mic").textContent = UI[lang].micStop;
+    recognizer.start();
+  });
+}
+
 fetch("/api/health").then((r) => r.json()).then((h) => { $("synthetic").hidden = !h.synthetic; }).catch(() => {});
 applyLang();
 </script>
