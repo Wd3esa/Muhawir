@@ -377,4 +377,11 @@ def test_answer_broken_by_the_check_is_rewritten_once_from_the_feedback():
 
 def test_second_reading_accepts_plain_explanations_and_rejects_additions():
     assert "إن شككت" not in generate.CHECK_PROMPT
-    assert "شرحًا له بلغة سهلة" in generate.CHECK_PROMPT and "أضافت معلومة ليست في المقاطع" in generate.CHECK_PROMPT
+    assert "شرحًا له بلغة سهلة" in generate.CHECK_PROMPT and "أضافت معلومة شرعية ليست في المقاطع" in generate.CHECK_PROMPT
+
+
+def test_religious_information_from_sources_explanation_from_the_model():
+    assert "المعلومة الشرعية من المقاطع، والشرح من فهمك" in generate.SYSTEM_PROMPT
+    assert "لا من ذاكرتك" in generate.SYSTEM_PROMPT and "معاني الكلمات" in generate.SYSTEM_PROMPT
+    assert "الشرح اللغوي العام الذي لا يضيف معلومة شرعية" in generate.CHECK_PROMPT
+    assert "حديثًا، أو قولًا لعالم" in generate.CHECK_PROMPT  # added religious content is still rejected
