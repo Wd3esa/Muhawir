@@ -35,7 +35,8 @@ ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE, TRANSLATED 
     "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable", "translated")
 _ARABIC = re.compile(r"[\u0600-\u06FF]")
 # a quotation of five words or more inside «» or "" or ﴿﴾: pasted from a source, not explained
-_COPIED = re.compile(r'«(?:[^»\s]+\s+){4,}[^»]*»|"(?:[^"\s]+\s+){4,}[^"]*"|“(?:[^”\s]+\s+){4,}[^”]*”|﴿(?:[^﴾\s]+\s+){4,}[^﴾]*﴾')
+# (a verse may be quoted in ﴿﴾: the code checks it word for word against the cited passage)
+_COPIED = re.compile(r'«(?:[^»\s]+\s+){4,}[^»]*»|"(?:[^"\s]+\s+){4,}[^"]*"|“(?:[^”\s]+\s+){4,}[^”]*”')
 _LATIN = re.compile(r"[A-Za-z]{2,}")
 # fixed replies (greetings, offers to explain again): never taken as "the previous answer"
 _CANNED = {v for t in TEXT.values() for v in t.values() if isinstance(v, str)}
@@ -58,6 +59,7 @@ class Response:
     understood: str = ""  # the follow-up question as rewritten for search, when it differs
     why: str = ""  # with MUHAWIR_DEBUG=1: why there is no answer (never contains the question)
     as_list: bool = False  # the answer lists types, kinds, conditions or steps: shown as a list
+    follow_up: str = ""  # a short question Muhawir suggests to continue the dialogue (a tap asks it)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -298,6 +300,7 @@ class Muhawir:
         if hasattr(self.generator, "last_note"):
             self.generator.last_note = self.generator.last_raw = ""
             self.generator.last_as_list = False
+            self.generator.last_follow_up = ""
         extra = {k: v for k, v in (("previous", previous), ("kind", kind)) if v}
         draft = self.generator.generate(question, passages, style, lang, personal=personal, **extra)
         if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
@@ -333,7 +336,9 @@ class Muhawir:
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
             return self._why(self._abstain(question, t, synthetic), f"{offered}; only scholars' views, no sourced answer")
-        claims = [{"text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)} for c in answer]
+        claims = [{"text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids),
+                   **({"section": c.section} if c.section else {}), **({"label": c.label} if c.label else {})}
+                  for c in answer]
         views = [{"school": c.school, "text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)}
                  for c in kept if c.school]
         cards = self._cards([pid for c in answer + [v for v in kept if v.school] for pid in c.passage_ids], corpus)
@@ -346,4 +351,5 @@ class Muhawir:
             res.why = dropped
         # kinds, conditions, pillars or steps are always shown as a list, whatever the model marked
         res.as_list = (bool(getattr(self.generator, "last_as_list", False)) or kind == "how") and len(claims) > 1
+        res.follow_up = getattr(self.generator, "last_follow_up", "") or ""
         return res

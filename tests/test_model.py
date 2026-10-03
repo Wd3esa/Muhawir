@@ -405,3 +405,24 @@ def test_per_request_state_is_not_shared_between_threads():
     t = threading.Thread(target=lambda: seen.append(gen.last_as_list))
     t.start(); t.join()
     assert seen == [False] and gen.last_as_list is True
+
+
+def test_sections_labels_and_follow_up_are_read_and_follow_up_must_be_a_short_question():
+    from muhawir.generate import follow_up
+    raw = json.dumps({"plan": "", "abstain": False, "as_list": False, "views": [],
+                      "claims": [{"section": "زكاة الفطر", "label": "وقتها", "text": "آخر رمضان.", "passage_ids": ["a:1"]}],
+                      "follow_up": "هل تريد أن تعرف لمن تُعطى؟"}, ensure_ascii=False)
+    c = parse_draft(raw)[0]
+    assert (c.section, c.label, c.text) == ("زكاة الفطر", "وقتها", "آخر رمضان.")
+    assert follow_up(raw) == "هل تريد أن تعرف لمن تُعطى؟"
+    assert follow_up(raw.replace("تُعطى؟", "تُعطى.")) == ""  # not a question: not shown
+    assert follow_up(raw.replace("هل تريد", "[q:1] هل تريد")) == ""
+
+
+def test_a_verse_in_brackets_is_not_copying_but_must_match_its_passage():
+    from muhawir.pipeline import _COPIED
+    from muhawir.verify import Claim, verify
+    assert not _COPIED.search("يُخرج حقها يوم الحصاد: ﴿وآتوا حقه يوم حصاده يوم كذا وكذا﴾")
+    pid = CORPUS.passages[0].id
+    kept, rejected = verify([Claim("قال تعالى: ﴿كلام ليس في المقطع أبدًا﴾", (pid,))], CORPUS, {pid})
+    assert kept == [] and rejected  # an invented verse is rejected

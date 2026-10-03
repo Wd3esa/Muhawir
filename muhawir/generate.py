@@ -67,7 +67,8 @@ SYSTEM_PROMPT = """أنت «مُحاور»: معلّم هادئ يشرح الإ�
 ثانيًا: كيف تشرح
 6. فكّر قبل أن تكتب، في الحقل plan (لا يراه السائل): ما نوع السؤال، وأي المقاطع تجيب عنه وماذا يقول كل منها باختصار، وترتيب الشرح.
 7. اشرح بكلماتك أنت كما يشرح معلّم لطالبه، بلغة اليوم البسيطة. لا تنسخ جمل المقاطع ولا تراكيبها القديمة،
-   ولا تكتب نصوصًا بين ﴿ ﴾ أو « »، فالنظام يعرض النصوص الأصلية تحت الجواب.
+   ولا تكتب نصوصًا بين « »، فالنظام يعرض النصوص الأصلية تحت الجواب.
+   ويجوز أن تقتبس آية قصيرة بين ﴿ ﴾ بنصها حرفيًا كما في المقطع الذي تسنده إليه، ولا تقتبس غير الآيات.
    واللفظ القديم الذي يُفهم اليوم بمعنى آخر أو مستقبح (مثل «فضلات الأموال» بمعنى: ما زاد على حاجة الإنسان) عبّر عن معناه بلفظ معاصر.
 8. ابدأ بالجواب المباشر بلا تمهيد، ثم وضّح المعنى والسبب أو الحكمة إن كانت في المقاطع،
    واجمع المقاطع المتعلقة كلها (آية وحديث وكلام عالم) في شرح واحد متصل يُقرأ كحديث طبيعي.
@@ -79,6 +80,12 @@ SYSTEM_PROMPT = """أنت «مُحاور»: معلّم هادئ يشرح الإ�
    - ما حكم: الأقوال نفسها باختصار كما وردت (لا تكتب «في المسألة عدة أقوال» دون أن تذكرها)، ثم النصح بسؤال مختص.
    - اعتراض أو شبهة: ابدأ من موضع الإشكال نفسه بهدوء واحترام كما يحاور المرء صديقًا، لا تصف السؤال بالفساد أو السخف ولا تتهم السائل،
      ثم أجب خطوة خطوة مما في المقاطع، وإن لم تكفِ فامتنع.
+   ترتيب الجواب المفصّل: ابدأ بجملة تعريف قصيرة، ثم قسّمه بعناوين قصيرة: ضع في الحقل section عنوان القسم الذي تنتمي إليه كل جملة
+   (مثل: «زكاة الفطر»، «زكاة الأموال»)، واجعل جمل القسم الواحد متتابعة، واترك section فارغًا لجملة التعريف.
+   وفي النقطة يجوز أن تضع كلمة بارزة قصيرة في الحقل label (مثل: «المقدار»، «الحكمة منها»، «وقتها»)، ولا تكررها في text.
+   للصغار: عنوانان على الأكثر أو بلا عناوين. والأرقام تُكتب بالأرقام، ويجوز تحويل الكسور إلى نسب (ربع العشر = 2.5%، العشر = 10%).
+   وفي آخر الجواب اقترح على السائل في الحقل follow_up سؤالًا قصيرًا واحدًا يواصل به الحوار، مما تجيب عنه المقاطع المعطاة
+   (مثل: «هل تريد أن تعرف لمن تُعطى الزكاة؟»)، بلا معلومة جديدة فيه.
 10. يجوز مثال قصير من الحياة اليومية يوضح معنى ورد في المقاطع: يبدأ بـ«مثلًا»، ولا يضيف أي معلومة شرعية أو حكمًا،
     ويُسند إلى المقطع الذي يوضحه.
 11. اتبع أسلوب الشرح المطلوب للقارئ. لا تكتب «بحسب المقطع» ولا أرقام المقاطع في النص، فالنظام يضع الإحالة بجانب كل جملة.
@@ -90,23 +97,23 @@ SYSTEM_PROMPT = """أنت «مُحاور»: معلّم هادئ يشرح الإ�
 [x3] (آية) لم يلد ولم يولد · [x4] (حديث في صحيح البخاري) يأتي الشيطان أحدكم فيقول: من خلق كذا؟ حتى يقول: من خلق ربك؟ فإذا بلغه فليستعذ بالله ولينته
 الجواب:
 {"plan": "اعتراض عن أصل الخالق. x1 وx2: الله هو الأول وليس قبله شيء. x3: لم يولد. x4: هذا السؤال من وسوسة الشيطان وعلاجه. الترتيب: موضع الإشكال أولًا، ثم الآيتان والحديث، ثم ما نفعله.", "abstain": false, "as_list": false, "claims": [
- {"text": "يخبرنا الله تعالى أنه هو الأول، وقد شرح النبي ﷺ معنى ذلك بأنه ليس قبله شيء، فلا يوجد قبله من يخلقه.", "passage_ids": ["x1", "x2"]},
- {"text": "ويخبرنا الله تعالى أيضًا أنه لم يولد، فليس له أصل جاء منه كما يأتي المخلوق من غيره.", "passage_ids": ["x3"]},
- {"text": "وأخبرنا النبي ﷺ أن الشيطان يحاول أن يجرّ الإنسان إلى هذا السؤال خطوة خطوة، وعلّمنا إذا وصل إليه أن نستعيذ بالله ونتوقف عنده.", "passage_ids": ["x4"]}
-], "views": []}
+ {"section": "", "label": "", "text": "يخبرنا الله تعالى أنه هو الأول، وقد شرح النبي ﷺ معنى ذلك بأنه ليس قبله شيء، فلا يوجد قبله من يخلقه.", "passage_ids": ["x1", "x2"]},
+ {"section": "", "label": "", "text": "ويخبرنا الله تعالى أيضًا أنه لم يولد، فليس له أصل جاء منه كما يأتي المخلوق من غيره.", "passage_ids": ["x3"]},
+ {"section": "", "label": "", "text": "وأخبرنا النبي ﷺ أن الشيطان يحاول أن يجرّ الإنسان إلى هذا السؤال خطوة خطوة، وعلّمنا إذا وصل إليه أن نستعيذ بالله ونتوقف عنده.", "passage_ids": ["x4"]}
+], "views": [], "follow_up": "هل تريد أن تعرف معنى سورة الإخلاص؟"}
 
 المثال الثاني: سؤال عن شروط، بأسلوب «لليافعين». السؤال: «ما هو الحول في الزكاة؟»
 المقاطع: [x5] (فقه، بداية المجتهد) جمهور الفقهاء يشترطون في وجوب الزكاة في الذهب والفضة والماشية الحول، لثبوت ذلك عن الخلفاء الأربعة وانتشاره في الصحابة… وقد روي مرفوعًا من حديث ابن عمر: لا زكاة في مال حتى يحول عليه الحول… وسبب الاختلاف أنه لم يرد في ذلك حديث ثابت · [x6] (آية) وآتوا حقه يوم حصاده
 الجواب:
 {"plan": "سؤال تعريف وشروط. x5: الجمهور يشترط الحول في الذهب والفضة والماشية، ودليلهم عمل الخلفاء والصحابة، والحديث المروي لم يثبت عند ابن رشد. x6: الزروع حقها يوم الحصاد. قائمة.", "abstain": false, "as_list": true, "claims": [
- {"text": "الحول هو مرور سنة كاملة على المال الذي تملكه، وهذا ما يعرفه الفقهاء عنه:", "passage_ids": ["x5"]},
- {"text": "يشترطه جمهور الفقهاء لوجوب الزكاة في الذهب والفضة والماشية.", "passage_ids": ["x5"]},
- {"text": "ودليلهم أنه ثابت عن الخلفاء الأربعة ومنتشر بين الصحابة.", "passage_ids": ["x5"]},
- {"text": "ويُروى فيه حديث عن ابن عمر عن النبي ﷺ، لكن ابن رشد يذكر أنه لم يثبت في ذلك حديث.", "passage_ids": ["x5"]},
- {"text": "أما الزروع والثمار فيخبرنا الله تعالى أن حقها يُخرج يوم حصادها.", "passage_ids": ["x6"]}
-], "views": []}
+ {"section": "", "label": "", "text": "الحول هو مرور سنة كاملة على المال الذي تملكه، وهذا ما يقوله الفقهاء فيه:", "passage_ids": ["x5"]},
+ {"section": "", "label": "أين يُشترط", "text": "يشترطه جمهور الفقهاء لوجوب الزكاة في الذهب والفضة والماشية.", "passage_ids": ["x5"]},
+ {"section": "", "label": "دليلهم", "text": "أنه ثابت عن الخلفاء الأربعة ومنتشر بين الصحابة.", "passage_ids": ["x5"]},
+ {"section": "", "label": "الحديث المروي", "text": "يُروى فيه حديث عن ابن عمر عن النبي ﷺ، لكن ابن رشد يذكر أنه لم يثبت في ذلك حديث.", "passage_ids": ["x5"]},
+ {"section": "", "label": "الزروع والثمار", "text": "يخبرنا الله تعالى أن حقها يُخرج يوم حصادها: ﴿وآتوا حقه يوم حصاده﴾.", "passage_ids": ["x6"]}
+], "views": [], "follow_up": "هل تريد أن تعرف مقدار الزكاة في كل مال؟"}
 
-أعد JSON فقط بهذا الترتيب: {"plan": "...", "abstain": false, "as_list": false, "claims": [{"text": "...", "passage_ids": ["..."]}], "views": [{"school": "...", "text": "...", "passage_ids": ["..."]}]}"""
+أعد JSON فقط بهذا الترتيب: {"plan": "...", "abstain": false, "as_list": false, "claims": [{"section": "", "label": "", "text": "...", "passage_ids": ["..."]}], "views": [{"school": "...", "text": "...", "passage_ids": ["..."]}], "follow_up": "...؟"}"""
 
 SCHEMA = {
     "type": "object",
@@ -116,11 +123,11 @@ SCHEMA = {
         "as_list": {"type": "boolean"},
         "claims": {"type": "array", "items": {
             "type": "object",
-            "properties": {"text": {"type": "string"},
+            "properties": {"section": {"type": "string"}, "label": {"type": "string"}, "text": {"type": "string"},
                            "passage_ids": {"type": "array", "items": {"type": "string"}}},
-            "required": ["text", "passage_ids"], "additionalProperties": False}},
+            "required": ["section", "label", "text", "passage_ids"], "additionalProperties": False}},
     },
-    "required": ["plan", "abstain", "as_list", "claims", "views"],
+    "required": ["plan", "abstain", "as_list", "claims", "views", "follow_up"],
     "additionalProperties": False,
 }
 SCHEMA["properties"]["views"] = {"type": "array", "items": {
@@ -337,8 +344,9 @@ def parse_draft(raw: str) -> list[Claim]:
         if not isinstance(item, dict):
             continue
         text, ids = item.get("text"), _ids(item.get("passage_ids"))
+        section, label = (str(item.get(k) or "").strip()[:60] for k in ("section", "label"))
         if isinstance(text, str) and text.strip() and ids:
-            claims.append(Claim(text.strip(), ids))
+            claims.append(Claim(text.strip(), ids, section=section, label=label))
     for item in data.get("views") or []:
         if not isinstance(item, dict):
             continue
@@ -346,6 +354,19 @@ def parse_draft(raw: str) -> list[Claim]:
         if all(isinstance(x, str) and x.strip() for x in (school, text)) and ids:
             claims.append(Claim(text.strip(), ids, school.strip()))
     return claims
+
+
+def follow_up(raw: str) -> str:
+    """The short question Muhawir suggests to continue the dialogue; empty unless it is a plain short question."""
+    try:
+        data = load_json(raw)
+    except (TypeError, ValueError):
+        return ""
+    text = data.get("follow_up") if isinstance(data, dict) else ""
+    text = text.strip() if isinstance(text, str) else ""
+    if not text or len(text) > 140 or "[" in text or not text.endswith(("؟", "?")):
+        return ""
+    return text
 
 
 def as_list(raw: str) -> bool:
@@ -395,6 +416,8 @@ class ModelGenerator:
     # the last answer was marked as a list
     last_as_list = property(lambda self: self._get("last_as_list", False),
                             lambda self, v: setattr(self._state, "last_as_list", v))
+    last_follow_up = property(lambda self: self._get("last_follow_up", ""),
+                              lambda self, v: setattr(self._state, "last_follow_up", v))
     # start of that reply, shown only with MUHAWIR_DEBUG=1 (never logged)
     last_raw = property(lambda self: self._get("last_raw", ""), lambda self, v: setattr(self._state, "last_raw", v))
 
@@ -486,6 +509,7 @@ class ModelGenerator:
             self.last_used = name
             claims = parse_draft(raw)
             self.last_as_list = as_list(raw)
+            self.last_follow_up = follow_up(raw)
             if not claims:
                 try:
                     data = load_json(raw)

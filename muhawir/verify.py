@@ -22,6 +22,8 @@ class Claim:
     text: str
     passage_ids: tuple[str, ...]
     school: str = ""  # set for a scholar's or school's view; must be named in the cited passage
+    section: str = ""  # heading of the part of the answer this sentence belongs to (layout only)
+    label: str = ""  # a short bold word that leads the sentence, e.g. «المقدار» (layout only)
 
 
 @dataclass(frozen=True)

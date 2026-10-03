@@ -46,6 +46,9 @@
   .answer { margin: 0; }
   .answer-list { margin: 6px 0 0; padding-inline-start: 22px; }
   .answer-list li { margin: 3px 0; }
+  .answer-section { font-size: 17px; margin: 14px 0 4px; color: var(--accent); }
+  .follow-up { display: block; margin-top: 12px; font: inherit; font-size: 15px; text-align: start; cursor: pointer;
+               background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 6px 14px; }
   .cite { font-size: 12px; vertical-align: super; line-height: 0; margin-inline-start: 2px; }
   .cite a { text-decoration: none; }
   .sources-title { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
@@ -166,7 +169,13 @@ function applyLang() {
 function spokenText(res) {
   const parts = [];
   if (res.message) parts.push(res.message);
-  for (const c of res.claims || []) if (!c.text.startsWith("«")) parts.push(c.text);
+  let heading = "";
+  for (const c of res.claims || []) {
+    if (c.text.startsWith("«")) continue;
+    if (c.section && c.section !== heading) { heading = c.section; parts.push(heading + "."); }
+    parts.push((c.label ? c.label + ": " : "") + c.text);
+  }
+  if (res.follow_up) parts.push(res.follow_up);
   for (const v of res.views || []) parts.push(`${v.school}: ${v.text}`);
   return parts.join("\n");
 }
@@ -260,27 +269,50 @@ function renderAnswer(res, style) {
     c.passage_ids.forEach((id) => shown.add(id));
     return false;
   });
-  const answer = el("p", "answer");
-  answer.dir = "auto";  // an English reply inside the Arabic page reads left to right
-  // types, kinds, conditions or steps: a short lead sentence, then one item per line
-  const items = res.as_list && sentences.length > 1 ? el("ul", "answer-list") : null;
-  // the first sentence leads the list only when it introduces it (ends with a colon)
-  const lead = items && /[:：]\s*$/.test(sentences[0].text);
-  if (items) items.dir = "auto";
-  sentences.forEach((c, i) => {
+  // one sentence: an optional bold label («المقدار:»), the text, then its source numbers
+  const fill = (node, c) => {
+    if (c.label) node.append(el("strong", "", c.label + ": "));
+    node.append(c.text);
     const sup = cite(c);
-    if (items && (i > 0 || !lead)) {
-      const li = el("li", "", c.text);
-      if (sup.childNodes.length) li.append(sup);
-      items.append(li);
-      return;
+    if (sup.childNodes.length) node.append(sup);
+  };
+  const paragraph = () => { const p = el("p", "answer"); p.dir = "auto"; return p; };
+  const list = () => { const u = el("ul", "answer-list"); u.dir = "auto"; return u; };
+  const sectioned = sentences.some((c) => c.section);
+  if (sectioned) {
+    // a short definition, then each part under its own heading, as a list
+    let block = null, current = null;
+    const intro = paragraph();
+    for (const c of sentences) {
+      if (!c.section) {
+        if (block) { const li = el("li"); fill(li, c); block.append(li); }
+        else { if (intro.childNodes.length) intro.append(" "); fill(intro, c); }
+        continue;
+      }
+      if (c.section !== current) {
+        if (intro.childNodes.length && !intro.parentNode) msg.append(intro);
+        current = c.section;
+        const h = el("h4", "answer-section", current); h.dir = "auto";
+        block = list();
+        msg.append(h, block);
+      }
+      const li = el("li"); fill(li, c); block.append(li);
     }
-    if (answer.childNodes.length) answer.append(" ");
-    answer.append(c.text);
-    if (sup.childNodes.length) answer.append(sup);
-  });
-  if (answer.childNodes.length) msg.append(answer);
-  if (items) msg.append(items);
+    if (intro.childNodes.length && !intro.parentNode) msg.prepend(intro);
+  } else {
+    const answer = paragraph();
+    // types, kinds, conditions or steps: a short lead sentence, then one item per line
+    const items = res.as_list && sentences.length > 1 ? list() : null;
+    // the first sentence leads the list only when it introduces it (ends with a colon)
+    const lead = items && /[:：]\s*$/.test(sentences[0].text);
+    sentences.forEach((c, i) => {
+      if (items && (i > 0 || !lead)) { const li = el("li"); fill(li, c); items.append(li); return; }
+      if (answer.childNodes.length) answer.append(" ");
+      fill(answer, c);
+    });
+    if (answer.childNodes.length) msg.append(answer);
+    if (items) msg.append(items);
+  }
   if (res.note) msg.append(el("p", "note", res.note));
   if ((res.views || []).length) {
     const panel = el("details", "views");
@@ -322,6 +354,12 @@ function renderAnswer(res, style) {
     }
     card.append(meta);
     msg.append(card);
+  }
+  if (res.follow_up) {  // Muhawir's suggestion to continue the dialogue: a tap asks it
+    const next = el("button", "follow-up", res.follow_up);
+    next.type = "button"; next.dir = "auto";
+    next.addEventListener("click", () => { $("q").value = res.follow_up; $("ask").requestSubmit(); });
+    msg.append(next);
   }
   const listen = listenButton(res);
   if (listen) { msg.append(listen); msg.listen = listen; }
