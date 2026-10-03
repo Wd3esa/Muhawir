@@ -221,3 +221,17 @@ def test_everyday_examples_are_allowed_only_as_illustrations():
     from muhawir.generate import CHECK_PROMPT, SYSTEM_PROMPT
     assert "يبدأ بـ«مثلًا»" in SYSTEM_PROMPT and "ولا يضيف أي معلومة شرعية" in SYSTEM_PROMPT
     assert "مثلًا" in CHECK_PROMPT
+
+
+def test_worked_examples_show_the_target_style_without_usable_ids():
+    from muhawir.generate import SYSTEM_PROMPT
+    assert "مثالان على الجواب الجيد" in SYSTEM_PROMPT and "ليست من مقاطعك" in SYSTEM_PROMPT
+    assert "فليس قبله شيء" in SYSTEM_PROMPT or "ليس قبله شيء" in SYSTEM_PROMPT
+    assert "لم يثبت في ذلك حديث" in SYSTEM_PROMPT  # the grading is said, not hidden
+
+
+def test_example_ids_are_never_accepted_as_sources():
+    m, seen = model()
+    from muhawir.verify import Claim, verify
+    kept, rejected = verify([Claim("نص.", ("x1",))], CORPUS, {"test-a:1"})
+    assert kept == [] and rejected
