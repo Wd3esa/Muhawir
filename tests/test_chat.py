@@ -149,3 +149,26 @@ def test_translation_target_defaults_to_the_other_language():
         else {"translation": "الصلاة"}))[1])])
     res = Muhawir(CORPUS, gen).ask("how do you say prayer in Arabic")
     assert res.message == "الصلاة" and "العربية" in prompts[-1]
+
+
+def _list_model(as_list):
+    def call(system, user, schema=None):
+        keys = json.dumps(schema or {})
+        if '"question"' in keys:
+            return json.dumps({"question": "ماذا تحتاج النخلة في الصيف؟", "translate": "", "answer_lang": "",
+                               "queries": []}, ensure_ascii=False)
+        return json.dumps({"abstain": False, "as_list": as_list, "views": [], "claims": [
+            {"text": "تحتاج النخلة إلى:", "passage_ids": ["test-a:1"]},
+            {"text": "ماء كثير.", "passage_ids": ["test-a:1"]}]}, ensure_ascii=False)
+    return Muhawir(CORPUS, ModelGenerator([("m", call)]))
+
+
+def test_answer_marked_as_list_is_shown_as_a_list():
+    assert _list_model(True).ask("ما أنواع ما تحتاجه النخلة في الصيف؟").as_list is True
+    assert _list_model(False).ask("ماذا تحتاج النخلة في الصيف؟").as_list is False
+
+
+def test_rules_ask_for_lists_and_plain_modern_wording():
+    from muhawir.generate import SCHEMA, SYSTEM_PROMPT
+    assert "as_list" in SCHEMA["required"] and "أنواع" in SYSTEM_PROMPT
+    assert "فضلات الأموال" in SYSTEM_PROMPT and "لا تقدّمه تعريفًا عامًا" in SYSTEM_PROMPT

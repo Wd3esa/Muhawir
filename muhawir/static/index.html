@@ -44,6 +44,8 @@
   @media (prefers-reduced-motion: reduce) { .typing span { animation: none; opacity: .6; } }
   .status { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .answer { margin: 0; }
+  .answer-list { margin: 6px 0 0; padding-inline-start: 22px; }
+  .answer-list li { margin: 3px 0; }
   .cite { font-size: 12px; vertical-align: super; line-height: 0; margin-inline-start: 2px; }
   .cite a { text-decoration: none; }
   .sources-title { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
@@ -237,12 +239,7 @@ function renderAnswer(res, style) {
   const quoted = new Set((res.sources || []).map((s) => `«${s.quote}»`));
   // A claim that only repeats a passage word for word is already shown in its source card.
   const shown = new Set();  // passages whose text is itself the answer stay open
-  const answer = el("p", "answer");
-  answer.dir = "auto";  // an English reply inside the Arabic page reads left to right
-  for (const c of res.claims || []) {
-    if (quoted.has(c.text)) { c.passage_ids.forEach((id) => shown.add(id)); continue; }
-    if (answer.childNodes.length) answer.append(" ");
-    answer.append(c.text);
+  const cite = (c) => {  // the numbers of the sources a sentence rests on, each opening its card
     const sup = el("span", "cite");
     for (const id of new Set(c.passage_ids)) {
       const n = number.get(id);
@@ -256,9 +253,32 @@ function renderAnswer(res, style) {
       });
       sup.append(a);
     }
+    return sup;
+  };
+  const sentences = (res.claims || []).filter((c) => {
+    if (!quoted.has(c.text)) return true;
+    c.passage_ids.forEach((id) => shown.add(id));
+    return false;
+  });
+  const answer = el("p", "answer");
+  answer.dir = "auto";  // an English reply inside the Arabic page reads left to right
+  // types, kinds, conditions or steps: a short lead sentence, then one item per line
+  const items = res.as_list && sentences.length > 1 ? el("ul", "answer-list") : null;
+  if (items) items.dir = "auto";
+  sentences.forEach((c, i) => {
+    const sup = cite(c);
+    if (items && i > 0) {
+      const li = el("li", "", c.text);
+      if (sup.childNodes.length) li.append(sup);
+      items.append(li);
+      return;
+    }
+    if (answer.childNodes.length) answer.append(" ");
+    answer.append(c.text);
     if (sup.childNodes.length) answer.append(sup);
-  }
+  });
   if (answer.childNodes.length) msg.append(answer);
+  if (items) msg.append(items);
   if (res.note) msg.append(el("p", "note", res.note));
   if ((res.views || []).length) {
     const panel = el("details", "views");

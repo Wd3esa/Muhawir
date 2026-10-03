@@ -47,6 +47,7 @@ class Response:
     views: list[dict] = field(default_factory=list)  # scholars' views as named in the sources
     understood: str = ""  # the follow-up question as rewritten for search, when it differs
     why: str = ""  # with MUHAWIR_DEBUG=1: why there is no answer (never contains the question)
+    as_list: bool = False  # the answer lists types, kinds, conditions or steps: shown as a list
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -223,6 +224,7 @@ class Muhawir:
         corpus = _WithLive(self.corpus, live, {self.hadith_source.id: self.hadith_source}) if live else self.corpus
         if hasattr(self.generator, "last_note"):
             self.generator.last_note = self.generator.last_raw = ""
+            self.generator.last_as_list = False
         draft = self.generator.generate(question, passages, style, lang, personal=personal)
         if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
             # the model could not be reached: say so honestly instead of "nothing found in the sources"
@@ -260,4 +262,6 @@ class Muhawir:
         if gate.kind == classify.PERSONAL_CASE:
             message = t["personal_case"] + "\n" + t["personal_case_info"]
             return Response(REFERRED, message, claims, cards, synthetic, note, views)
-        return Response(ANSWERED, "", claims, cards, synthetic, note, views)
+        res = Response(ANSWERED, "", claims, cards, synthetic, note, views)
+        res.as_list = bool(getattr(self.generator, "last_as_list", False)) and len(claims) > 1
+        return res
