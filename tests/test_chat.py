@@ -102,7 +102,7 @@ def test_history_is_trimmed():
 
 
 def test_no_conclusions_rule_is_in_the_instructions():
-    assert "لا تستنتج من عندك خلاصة" in generate.SYSTEM_PROMPT
+    assert "ولا خلاصة أو حكم من عندك" in generate.SYSTEM_PROMPT and "ولا ترجيح بين الأقوال" in generate.SYSTEM_PROMPT
 
 
 def test_thanks_and_dua_get_a_thanks_reply():
@@ -171,7 +171,7 @@ def test_answer_marked_as_list_is_shown_as_a_list():
 def test_rules_ask_for_lists_and_plain_modern_wording():
     from muhawir.generate import SCHEMA, SYSTEM_PROMPT
     assert "as_list" in SCHEMA["required"] and "أنواع" in SYSTEM_PROMPT
-    assert "فضلات الأموال" in SYSTEM_PROMPT and "لا تقدّمه تعريفًا عامًا" in SYSTEM_PROMPT
+    assert "فضلات الأموال" in SYSTEM_PROMPT and "لا تقدّمها تعريفًا عامًا" in SYSTEM_PROMPT
 
 
 def test_hadith_answers_start_by_attributing_to_the_prophet():
@@ -199,4 +199,25 @@ def test_i_did_not_understand_explains_the_same_question_again_more_simply():
 
 def test_rules_ask_for_muhawirs_own_words():
     from muhawir.generate import SYSTEM_PROMPT
-    assert "اشرح بكلماتك أنت" in SYSTEM_PROMPT and "ولا تنسخ جمل المقاطع" in SYSTEM_PROMPT
+    assert "اشرح بكلماتك أنت" in SYSTEM_PROMPT and "لا تنسخ جمل المقاطع" in SYSTEM_PROMPT
+
+
+def test_answer_step_thinks_first_and_gets_the_audience_and_question_kind():
+    from muhawir.generate import SCHEMA, STYLE_GUIDE, build_user_prompt
+    assert list(SCHEMA["properties"])[0] == "plan" and "plan" in SCHEMA["required"]
+    assert "13 و18" in STYLE_GUIDE["youth"] and "9 و12" in STYLE_GUIDE["kids"] and "يؤمن المسلمون" in STYLE_GUIDE["newcomer"]
+    prompt = build_user_prompt("س؟", [], "kids", "ar", False, kind="why")
+    assert "طفل" in prompt and "سبب أو حكمة" in prompt
+
+
+def test_understanding_returns_the_question_kind():
+    gen = ModelGenerator([("m", lambda s, u, schema=None: json.dumps(
+        {"question": "لماذا نصوم؟", "translate": "", "answer_lang": "", "kind": "why", "reexplain": False,
+         "queries": []}, ensure_ascii=False))])
+    assert gen.understand("لماذا نصوم؟", [])["kind"] == "why"
+
+
+def test_everyday_examples_are_allowed_only_as_illustrations():
+    from muhawir.generate import CHECK_PROMPT, SYSTEM_PROMPT
+    assert "يبدأ بـ«مثلًا»" in SYSTEM_PROMPT and "ولا يضيف أي معلومة شرعية" in SYSTEM_PROMPT
+    assert "مثلًا" in CHECK_PROMPT

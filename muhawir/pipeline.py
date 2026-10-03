@@ -161,7 +161,7 @@ class Muhawir:
                 return Response(ABSTAINED, TEXT[lang_ok]["no_reason"][missing["what"]].format(**missing),
                                 synthetic=self.corpus.synthetic)
         understand = getattr(self.generator, "understand", None)
-        understood, queries, previous = "", None, ""
+        understood, queries, previous, kind = "", None, "", ""
         if question and understand and len(question) <= MAX_QUESTION_CHARS:
             gate = classify.check(question)  # the user's own words are checked before any rewording
             if gate.kind not in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
@@ -178,6 +178,7 @@ class Muhawir:
                         return Response(TRANSLATED, out, synthetic=self.corpus.synthetic,
                                         note=TEXT[lang_ok]["translation_label"])
                     queries = u["queries"]
+                    kind = u.get("kind", "")
                     if u.get("reexplain"):  # "I did not understand": the same question, explained again more simply
                         previous = next((t["text"] for t in reversed(turns) if t["role"] == "assistant"), "")
                         if previous:
@@ -186,13 +187,13 @@ class Muhawir:
                         lang = u["lang"]
                     if normalize(u["question"]) != normalize(question):
                         understood = u["question"]
-        res = self._ask(understood or question, style, lang, original=question, queries=queries, previous=previous)
+        res = self._ask(understood or question, style, lang, original=question, queries=queries, previous=previous, kind=kind)
         if understood and res.status not in (INVALID,):
             res.understood = understood
         return res
 
     def _ask(self, question: str, style: str, lang: str, original: str = "",
-             queries: list[str] | None = None, previous: str = "") -> Response:
+             queries: list[str] | None = None, previous: str = "", kind: str = "") -> Response:
         lang = lang if lang in LANGS else "ar"
         style = style if style in STYLES else "youth"
         t = TEXT[lang]
@@ -249,7 +250,7 @@ class Muhawir:
         if hasattr(self.generator, "last_note"):
             self.generator.last_note = self.generator.last_raw = ""
             self.generator.last_as_list = False
-        extra = {"previous": previous} if previous else {}
+        extra = {k: v for k, v in (("previous", previous), ("kind", kind)) if v}
         draft = self.generator.generate(question, passages, style, lang, personal=personal, **extra)
         if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
             # the model could not be reached: say so honestly instead of "nothing found in the sources"

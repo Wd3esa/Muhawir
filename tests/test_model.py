@@ -348,7 +348,7 @@ def test_prose_answer_with_ids_becomes_claims():
 
 
 def test_attribution_and_exact_meaning_rules_are_in_the_instructions():
-    assert "فانسبه إلى قائله" in generate.SYSTEM_PROMPT and "لا تقلب نفيًا إلى إثبات" in generate.SYSTEM_PROMPT
+    assert "يُنسب إلى قائله" in generate.SYSTEM_PROMPT and "لا تقلب نفيًا إلى إثبات" in generate.SYSTEM_PROMPT
 
 
 @pytest.mark.real_check
