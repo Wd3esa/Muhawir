@@ -115,7 +115,7 @@ const UI = {
         views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
-        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", sources: "المصادر", source: "المصدر", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
+        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", sources: "المصادر", source: "المصدر", verify: "تحقق في الدرر السنية", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "", chat: "" } },
   en: { lang: "Language", tagline: "Helps you answer your questions about Islam, fiqh and creed from approved, trusted sources, and refers you to a specialist when you ask for a fatwa.",
         qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
@@ -125,7 +125,7 @@ const UI = {
         views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
-        topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", sources: "Sources", source: "Source", open: "Open source", error: "Could not connect. Please try again.",
+        topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", sources: "Sources", source: "Source", verify: "Check on dorar.net", open: "Open source", error: "Could not connect. Please try again.",
         status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "", chat: "" } }
 };
 const $ = (id) => document.getElementById(id);
@@ -235,8 +235,10 @@ function renderAnswer(res, style) {
     cardFor.set(s.passage_id, card);
     // a hadith shows its grading in the folded line, so it is never seen without it
     const summary = el("summary");
-    summary.append(el("span", "num", `[${number.get(s.passage_id)}]`), s.kind === "hadith"
-      ? `${t.hadith} (${t.grade}: ${s.grade}) · ${s.source_name}` : `${s.source_name} · ${s.location}`);
+    const label = s.kind !== "hadith" ? `${s.source_name} · ${s.location}`
+      : s.grade ? `${t.hadith} (${t.grade}: ${s.grade}) · ${s.source_name}`
+      : s.location;  // e.g. «صحيح البخاري، رقم 1»
+    summary.append(el("span", "num", `[${number.get(s.passage_id)}]`), label);
     card.append(summary);
     card.append(el("div", "about", s.source_about));
     card.append(el("blockquote", "", s.quote));
@@ -247,12 +249,26 @@ function renderAnswer(res, style) {
       a.href = s.source_url; a.target = "_blank"; a.rel = "noopener";
       meta.append(" · ", a);
     }
+    if (s.kind === "hadith") {  // check this hadith on dorar.net, as dorar's own search box for site owners does
+      const a = el("a", "", t.verify);
+      a.href = "https://dorar.net/hadith/search?q=" + encodeURIComponent(searchPhrase(s.quote));
+      a.target = "_blank"; a.rel = "noopener";
+      meta.append(" · ", a);
+    }
     card.append(meta);
     msg.append(card);
   }
   const listen = listenButton(res);
   if (listen) { const tools = el("div", "tools"); tools.append(listen); msg.append(tools); }
   return msg;
+}
+
+// A short distinctive phrase of a hadith for dorar's search: the Prophet's words when quoted, else the last words.
+function searchPhrase(text) {
+  const plain = text.replace(/[\u064B-\u0652\u0670\u0640]/g, "");
+  const quoted = plain.match(/"([^"]{15,})"/) || plain.match(/«([^»]{15,})»/);
+  const words = (quoted ? quoted[1] : plain).replace(/[^\p{L}\s]/gu, " ").split(/\s+/).filter(Boolean);
+  return (quoted ? words.slice(0, 7) : words.slice(-7)).join(" ");
 }
 
 function remember(role, text) {

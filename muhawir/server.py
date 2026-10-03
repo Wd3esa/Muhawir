@@ -33,8 +33,9 @@ def build() -> Muhawir:
     """
     db = Path(os.environ.get("MUHAWIR_DB") or DEFAULT_DB)
     generator = get_generator()
-    # live hadith search from dorar.net in model mode; MUHAWIR_DORAR=0 turns it off
-    hadith = dorar.search if generator.name != "extractive" and os.environ.get("MUHAWIR_DORAR", "1") != "0" else None
+    # live hadith search from dorar.net: off unless MUHAWIR_DORAR=1 (dorar refused server requests;
+    # the two Sahih books in the database are the hadith source until dorar gives permission)
+    hadith = dorar.search if generator.name != "extractive" and os.environ.get("MUHAWIR_DORAR", "0") == "1" else None
     if db.exists() and not os.environ.get("MUHAWIR_CORPUS"):
         corpus = SqliteCorpus(db)
         engine = Muhawir(corpus, generator, SqliteRetriever(corpus), hadith_search=hadith,
