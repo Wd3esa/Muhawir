@@ -25,6 +25,7 @@ MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decid
 MAX_HADITH = 3  # live hadith results offered to the model, in addition to the passages above
 
 MAX_QUESTION_CHARS = 500
+SIMPLER = {"extended": "youth", "youth": "kids", "kids": "kids", "newcomer": "newcomer"}  # for "I did not understand"
 
 ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE, TRANSLATED = (
     "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable", "translated")
@@ -160,7 +161,7 @@ class Muhawir:
                 return Response(ABSTAINED, TEXT[lang_ok]["no_reason"][missing["what"]].format(**missing),
                                 synthetic=self.corpus.synthetic)
         understand = getattr(self.generator, "understand", None)
-        understood, queries = "", None
+        understood, queries, previous = "", None, ""
         if question and understand and len(question) <= MAX_QUESTION_CHARS:
             gate = classify.check(question)  # the user's own words are checked before any rewording
             if gate.kind not in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
@@ -177,17 +178,21 @@ class Muhawir:
                         return Response(TRANSLATED, out, synthetic=self.corpus.synthetic,
                                         note=TEXT[lang_ok]["translation_label"])
                     queries = u["queries"]
+                    if u.get("reexplain"):  # "I did not understand": the same question, explained again more simply
+                        previous = next((t["text"] for t in reversed(turns) if t["role"] == "assistant"), "")
+                        if previous:
+                            style = SIMPLER.get(style, style)
                     if u.get("lang") in LANGS:  # e.g. "the meaning of Tawhid in English": answer in English
                         lang = u["lang"]
                     if normalize(u["question"]) != normalize(question):
                         understood = u["question"]
-        res = self._ask(understood or question, style, lang, original=question, queries=queries)
+        res = self._ask(understood or question, style, lang, original=question, queries=queries, previous=previous)
         if understood and res.status not in (INVALID,):
             res.understood = understood
         return res
 
     def _ask(self, question: str, style: str, lang: str, original: str = "",
-             queries: list[str] | None = None) -> Response:
+             queries: list[str] | None = None, previous: str = "") -> Response:
         lang = lang if lang in LANGS else "ar"
         style = style if style in STYLES else "youth"
         t = TEXT[lang]
@@ -244,7 +249,8 @@ class Muhawir:
         if hasattr(self.generator, "last_note"):
             self.generator.last_note = self.generator.last_raw = ""
             self.generator.last_as_list = False
-        draft = self.generator.generate(question, passages, style, lang, personal=personal)
+        extra = {"previous": previous} if previous else {}
+        draft = self.generator.generate(question, passages, style, lang, personal=personal, **extra)
         if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
             # the model could not be reached: say so honestly instead of "nothing found in the sources"
             return self._why(Response(UNAVAILABLE, t["unavailable"], synthetic=synthetic), ALL_MODELS_FAILED)
@@ -257,7 +263,8 @@ class Muhawir:
             # the checks removed the start or most of the answer, so what is left would not read as one
             # answer: ask once for a full rewrite that avoids the rejected sentences, then check it again
             feedback = "\n".join(f"- {r.claim.text}" for r in rejected)[:2000]
-            redraft = self.generator.generate(question, passages, style, lang, personal=personal, feedback=feedback)
+            redraft = self.generator.generate(question, passages, style, lang, personal=personal, feedback=feedback,
+                                              **extra)
             second = self._checked(redraft, corpus, allowed, passages) if redraft else None
             if second is not None and len(second[0]) > len(kept):
                 kept, rejected = second

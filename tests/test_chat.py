@@ -177,3 +177,26 @@ def test_rules_ask_for_lists_and_plain_modern_wording():
 def test_hadith_answers_start_by_attributing_to_the_prophet():
     from muhawir.generate import SYSTEM_PROMPT
     assert "أخبرنا النبي ﷺ" in SYSTEM_PROMPT and "يخبرنا الله تعالى" in SYSTEM_PROMPT
+
+
+def test_i_did_not_understand_explains_the_same_question_again_more_simply():
+    prompts = []
+
+    def call(system, user, schema=None):
+        keys = json.dumps(schema or {})
+        if '"question"' in keys:
+            return json.dumps({"question": "ماذا تحتاج النخلة في الصيف؟", "translate": "", "answer_lang": "",
+                               "reexplain": True, "queries": []}, ensure_ascii=False)
+        prompts.append(user)
+        return json.dumps({"abstain": False, "as_list": False, "views": [], "claims": [
+            {"text": "النخلة تشرب ماء كثيرا في الصيف.", "passage_ids": ["test-a:1"]}]}, ensure_ascii=False)
+
+    res = Muhawir(CORPUS, ModelGenerator([("m", call)])).ask("ما فهمت", style="youth", history=HISTORY)
+    assert res.status == ANSWERED
+    assert "السائل لم يفهم جوابك السابق" in prompts[0] and "تحتاج النخلة إلى ماء كثير في الصيف." in prompts[0]
+    assert "لطفل" in prompts[0]  # one step simpler than the chosen style
+
+
+def test_rules_ask_for_muhawirs_own_words():
+    from muhawir.generate import SYSTEM_PROMPT
+    assert "اشرح بكلماتك أنت" in SYSTEM_PROMPT and "ولا تنسخ جمل المقاطع" in SYSTEM_PROMPT
