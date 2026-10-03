@@ -380,9 +380,9 @@ def test_second_reading_accepts_plain_explanations_and_rejects_additions():
     assert "شرحًا له بلغة سهلة" in generate.CHECK_PROMPT and "أضافت معلومة شرعية ليست في المقاطع" in generate.CHECK_PROMPT
 
 
-def test_religious_information_from_sources_explanation_from_the_model():
-    assert "المعلومة الشرعية من المقاطع، والشرح من فهمك" in generate.SYSTEM_PROMPT
-    assert "لا من ذاكرتك" in generate.SYSTEM_PROMPT and "معاني الكلمات" in generate.SYSTEM_PROMPT
+def test_never_fabricate_or_distort_otherwise_free_to_explain():
+    assert "تأليف آية أو حديث أو قول أو مصدر أو نسبة" in generate.SYSTEM_PROMPT
+    assert "تحريف نص آية أو حديث أو معناه" in generate.SYSTEM_PROMPT and "وما سوى ذلك فأنت حر فيه" in generate.SYSTEM_PROMPT
     assert "الشرح اللغوي العام الذي لا يضيف معلومة شرعية" in generate.CHECK_PROMPT
     assert "حديثًا، أو قولًا لعالم" in generate.CHECK_PROMPT  # added religious content is still rejected
 
@@ -426,3 +426,21 @@ def test_a_verse_in_brackets_is_not_copying_but_must_match_its_passage():
     pid = CORPUS.passages[0].id
     kept, rejected = verify([Claim("قال تعالى: ﴿كلام ليس في المقطع أبدًا﴾", (pid,))], CORPUS, {pid})
     assert kept == [] and rejected  # an invented verse is rejected
+
+
+def test_an_answer_of_explanation_alone_is_not_shown():
+    raw = {"plan": "", "abstain": False, "as_list": False, "views": [], "follow_up": "",
+           "claims": [{"section": "", "label": "", "text": "شرح عام من فهم مُحاور.", "passage_ids": []}]}
+    m = Muhawir(CORPUS, ModelGenerator([("m", lambda s, u, schema=None:
+                                         '{"queries": []}' if "queries" in json.dumps(schema or {}) else json.dumps(raw, ensure_ascii=False))]))
+    assert m.ask(QUESTION).status != ANSWERED  # every answer must rest on the sources
+
+
+def test_own_explanation_is_shown_next_to_sourced_sentences_without_a_number():
+    raw = {"plan": "", "abstain": False, "as_list": False, "views": [], "follow_up": "",
+           "claims": [{"section": "", "label": "", "text": "تحتاج النخلة إلى ماء كثير.", "passage_ids": ["test-a:1"]},
+                      {"section": "", "label": "", "text": "وهذا لأن الصيف حار.", "passage_ids": []}]}
+    m = Muhawir(CORPUS, ModelGenerator([("m", lambda s, u, schema=None:
+                                         '{"queries": []}' if "queries" in json.dumps(schema or {}) else json.dumps(raw, ensure_ascii=False))]))
+    res = m.ask(QUESTION)
+    assert res.status == ANSWERED and [c["passage_ids"] for c in res.claims] == [["test-a:1"], []]

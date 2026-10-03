@@ -125,12 +125,14 @@ class Muhawir:
             rejected += [Rejected(c, "copied a source sentence instead of explaining it") for c in copied]
             kept = [c for c in kept if c not in copied]
         check = getattr(self.generator, "check_support", None)
-        if kept and check:
-            flags = check(kept, {p.id: p for p in passages})
+        cited = [c for c in kept if c.passage_ids]  # Muhawir's own explanations have no passage to read against
+        if cited and check:
+            flags = check(cited, {p.id: p for p in passages})
             if flags is None:
                 return None
-            rejected += [Rejected(c, "not supported by the cited passage") for c, ok in zip(kept, flags) if not ok]
-            kept = [c for c, ok in zip(kept, flags) if ok]
+            wrong = {id(c) for c, ok in zip(cited, flags) if not ok}
+            rejected += [Rejected(c, "not supported by the cited passage") for c in cited if id(c) in wrong]
+            kept = [c for c in kept if id(c) not in wrong]
         return kept, rejected
 
     @staticmethod
@@ -332,10 +334,10 @@ class Muhawir:
             log.warning("some claims dropped: %s", "; ".join(r.reason for r in rejected)[:500])
 
         answer = [c for c in kept if not c.school]
-        if not answer:  # views alone, without a sourced answer, are not shown
+        if not any(c.passage_ids for c in answer):  # an answer must rest on the sources: explanation alone is not shown
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
-            return self._why(self._abstain(question, t, synthetic), f"{offered}; only scholars' views, no sourced answer")
+            return self._why(self._abstain(question, t, synthetic), f"{offered}; no sourced sentence (only views or Muhawir's own explanation)")
         claims = [{"text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids),
                    **({"section": c.section} if c.section else {}), **({"label": c.label} if c.label else {})}
                   for c in answer]

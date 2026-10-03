@@ -15,6 +15,12 @@ from .normalize import normalize
 # quotations of the sources: Arabic text inside «» or ﴿﴾ (English "..." marks a word, not a quotation)
 _QUOTES = re.compile(r"«([^»]+)»|﴿([^﴾]+)﴾")
 _ARABIC = re.compile(r"[؀-ۿ]")
+# a sentence without a source may explain, but may not quote or attribute anything to Allah, the Prophet ﷺ
+# or a scholar: verses, hadith and sayings come only from the sources
+_SACRED = re.compile(
+    r"[«»﴿﴾]|ﷺ|صلى الله عليه وسلم|عليه الصلاة والسلام|رسول الله|\bالنبي\b|\bقال تعالى|\bقوله تعالى|يقول الله|قال الله|"
+    r"\bفي الحديث|\bحديث\b|\bروى\b|\bرواه\b|\bيُروى|\bقال (?:ابن|الإمام|الشيخ|مالك|الشافعي|أحمد|أبو حنيفة)|"
+    r"\bthe Prophet\b|\bAllah says\b|\bhadith\b|\bnarrated\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -42,7 +48,10 @@ def verify(claims: list[Claim], corpus: Corpus,
     rejected: list[Rejected] = []
     for claim in claims:
         if not claim.passage_ids:
-            rejected.append(Rejected(claim, "no citation"))
+            if claim.school or _SACRED.search(claim.text):
+                rejected.append(Rejected(claim, "quotes or attributes to Allah, the Prophet or a scholar without a source"))
+            else:
+                kept.append(claim)  # Muhawir's own explanation: shown without a source number
             continue
         unknown = [pid for pid in claim.passage_ids if pid not in allowed_ids]
         if unknown:

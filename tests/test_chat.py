@@ -102,7 +102,7 @@ def test_history_is_trimmed():
 
 
 def test_no_conclusions_rule_is_in_the_instructions():
-    assert "ولا خلاصة أو حكم من عندك" in generate.SYSTEM_PROMPT and "ولا ترجيح بين الأقوال" in generate.SYSTEM_PROMPT
+    assert "لا فتوى ولا حكم في حالة شخص بعينه" in generate.SYSTEM_PROMPT and "ولا ترجيح بين أقوال العلماء" in generate.SYSTEM_PROMPT
 
 
 def test_thanks_and_dua_get_a_thanks_reply():

@@ -130,10 +130,12 @@ def test_verifier_rejects_altered_quote(corpus):
     assert not kept and "verbatim" in rejected[0].reason
 
 
-def test_verifier_rejects_uncited_and_unretrieved(corpus):
-    kept, rejected = verify([Claim("نص بلا إسناد", ()),
+def test_verifier_keeps_own_explanation_but_never_uncited_sacred_text_or_unretrieved_sources(corpus):
+    kept, rejected = verify([Claim("وهذا يعني أن النخلة تحتاج إلى عناية.", ()),        # Muhawir's own explanation
+                             Claim("قال النبي ﷺ إن النخلة مباركة.", ()),              # a hadith without a source
+                             Claim("قال تعالى: ﴿والنخل باسقات﴾", ()),                 # a verse without a source
                              Claim("«الجمل حيوان»", ("test-b:1",))], corpus, {"test-a:1"})
-    assert not kept and len(rejected) == 2
+    assert [c.text for c in kept] == ["وهذا يعني أن النخلة تحتاج إلى عناية."] and len(rejected) == 3
 
 
 # --- pipeline ------------------------------------------------------------
