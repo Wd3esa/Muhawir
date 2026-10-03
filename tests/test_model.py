@@ -349,3 +349,32 @@ def test_prose_answer_with_ids_becomes_claims():
 
 def test_attribution_and_exact_meaning_rules_are_in_the_instructions():
     assert "فانسبه إلى قائله" in generate.SYSTEM_PROMPT and "لا تقلب نفيًا إلى إثبات" in generate.SYSTEM_PROMPT
+
+
+@pytest.mark.real_check
+def test_answer_broken_by_the_check_is_rewritten_once_from_the_feedback():
+    first = {"abstain": False, "claims": [
+        {"text": "النخلة لا تحتاج إلى الماء.", "passage_ids": ["test-a:1"]},
+        {"text": "وهي تحتاجه أكثر في الصيف.", "passage_ids": ["test-a:1"]}]}
+    second = {"abstain": False, "claims": [
+        {"text": "تحتاج النخلة إلى ماء كثير.", "passage_ids": ["test-a:1"]},
+        {"text": "ويزداد ذلك في الصيف.", "passage_ids": ["test-a:1"]}]}
+    prompts, verdicts = [], iter([[False, True], [True, True]])
+
+    def call(system, user, schema=None):
+        keys = json.dumps(schema or {})
+        if "supported" in keys:
+            return json.dumps({"supported": next(verdicts)})
+        if "queries" in keys:
+            return '{"queries": []}'
+        prompts.append(user)
+        return json.dumps(first if len(prompts) == 1 else second, ensure_ascii=False)
+
+    res = Muhawir(CORPUS, ModelGenerator([("m", call)])).ask(QUESTION)
+    assert [c["text"] for c in res.claims] == ["تحتاج النخلة إلى ماء كثير.", "ويزداد ذلك في الصيف."]
+    assert len(prompts) == 2 and "النخلة لا تحتاج إلى الماء." in prompts[1].split("مراجعة لجواب سابق")[1]
+
+
+def test_second_reading_accepts_plain_explanations_and_rejects_additions():
+    assert "إن شككت" not in generate.CHECK_PROMPT
+    assert "شرحًا له بلغة سهلة" in generate.CHECK_PROMPT and "أضافت معلومة ليست في المقاطع" in generate.CHECK_PROMPT

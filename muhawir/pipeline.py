@@ -103,6 +103,25 @@ class Muhawir:
             res.why = reason[:500] + (f" | reply began: {reply_start}" if reply_start else "")
         return res
 
+    def _checked(self, draft, corpus, allowed: set[str], passages: list[Passage]):
+        """The two checks: in code (ids retrieved, quotes verbatim, schools named), then the model's
+        second reading against the cited passages. None when the second reading could not run."""
+        kept, rejected = verify(draft, corpus, allowed)
+        check = getattr(self.generator, "check_support", None)
+        if kept and check:
+            flags = check(kept, {p.id: p for p in passages})
+            if flags is None:
+                return None
+            rejected += [Rejected(c, "not supported by the cited passage") for c, ok in zip(kept, flags) if not ok]
+            kept = [c for c, ok in zip(kept, flags) if ok]
+        return kept, rejected
+
+    @staticmethod
+    def _broken(kept: list, rejected: list, draft: list) -> bool:
+        """True when the checks removed the first sentence or at least half of the answer."""
+        first = draft[0] if draft else None
+        return not kept or (first is not None and first not in kept) or len(rejected) >= len(kept)
+
     def _hadith(self, queries: list[str]) -> list[Passage]:
         found: dict[str, Passage] = {}
         for query in queries[:2]:
@@ -229,16 +248,19 @@ class Muhawir:
         if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
             # the model could not be reached: say so honestly instead of "nothing found in the sources"
             return self._why(Response(UNAVAILABLE, t["unavailable"], synthetic=synthetic), ALL_MODELS_FAILED)
-        kept, rejected = verify(draft, corpus, allowed)
-        check = getattr(self.generator, "check_support", None)
-        if kept and check:  # second reading against the cited passages; fail closed if it cannot run
-            flags = check(kept, {p.id: p for p in passages})
-            if flags is None:  # the check could not run: show nothing unchecked, and say why honestly
-                return self._why(Response(UNAVAILABLE, t["unavailable"], synthetic=synthetic),
-                                 "support check could not run")
-            else:
-                rejected += [Rejected(c, "not supported by the cited passage") for c, ok in zip(kept, flags) if not ok]
-                kept = [c for c, ok in zip(kept, flags) if ok]
+        result = self._checked(draft, corpus, allowed, passages)
+        if result is None:  # the check could not run: show nothing unchecked, and say why honestly
+            return self._why(Response(UNAVAILABLE, t["unavailable"], synthetic=synthetic),
+                             "support check could not run")
+        kept, rejected = result
+        if rejected and self._broken(kept, rejected, draft) and getattr(self.generator, "check_support", None):
+            # the checks removed the start or most of the answer, so what is left would not read as one
+            # answer: ask once for a full rewrite that avoids the rejected sentences, then check it again
+            feedback = "\n".join(f"- {r.claim.text}" for r in rejected)[:2000]
+            redraft = self.generator.generate(question, passages, style, lang, personal=personal, feedback=feedback)
+            second = self._checked(redraft, corpus, allowed, passages) if redraft else None
+            if second is not None and len(second[0]) > len(kept):
+                kept, rejected = second
         offered = f"{len(passages)} passages offered"
         if not kept:
             reason = "; ".join(r.reason for r in rejected) or getattr(self.generator, "last_note", "") or "no claims"
@@ -246,6 +268,7 @@ class Muhawir:
             if personal:
                 return self._why(Response(REFERRED, t["personal_case"], synthetic=synthetic), f"{offered}; {reason}")
             return self._why(self._abstain(question, t, synthetic), f"{offered}; {reason}", raw)
+        dropped = f"{len(rejected)} sentence(s) dropped: " + "; ".join(r.reason for r in rejected)[:400] if rejected else ""
         if rejected:
             log.warning("some claims dropped: %s", "; ".join(r.reason for r in rejected)[:500])
 
@@ -263,5 +286,7 @@ class Muhawir:
             message = t["personal_case"] + "\n" + t["personal_case_info"]
             return Response(REFERRED, message, claims, cards, synthetic, note, views)
         res = Response(ANSWERED, "", claims, cards, synthetic, note, views)
+        if DEBUG and dropped:
+            res.why = dropped
         res.as_list = bool(getattr(self.generator, "last_as_list", False)) and len(claims) > 1
         return res
