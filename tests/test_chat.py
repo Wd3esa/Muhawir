@@ -12,7 +12,7 @@ HISTORY = [{"role": "user", "text": "ماذا تحتاج النخلة في ال�
            {"role": "assistant", "text": "تحتاج النخلة إلى ماء كثير في الصيف."}]
 
 
-def model(rewrite="ماذا تحتاج النخلة في الصيف؟", fail_rewrite=False):
+def model(rewrite="ماذا تحتاج النخلة في الصيف؟", fail_rewrite=False, answer_lang="", queries=None):
     seen = {"standalone": 0, "answer_prompts": []}
 
     def call(system, user, schema=None):
@@ -21,7 +21,8 @@ def model(rewrite="ماذا تحتاج النخلة في الصيف؟", fail_rew
             seen["standalone"] += 1
             if fail_rewrite:
                 raise RuntimeError("down")
-            return json.dumps({"question": rewrite}, ensure_ascii=False)
+            return json.dumps({"question": rewrite, "answer_lang": answer_lang, "queries": queries or []},
+                              ensure_ascii=False)
         if "queries" in keys:
             return '{"queries": []}'
         seen["answer_prompts"].append(user)
@@ -106,3 +107,23 @@ def test_thanks_and_dua_get_a_thanks_reply():
         res = m.ask(text)
         assert res.status == CHAT and res.message.startswith(("وإياك", "You are welcome")), text
     assert m.ask("السلام عليكم").message.startswith("أهلًا")
+
+
+def test_request_for_a_meaning_in_english_is_answered_in_english_from_the_sources():
+    m, seen = model(rewrite="ماذا تحتاج النخلة في الصيف؟", answer_lang="en")
+    res = m.ask("ترجم لي ماذا تحتاج النخلة في الصيف بالإنجليزية")
+    assert res.status == ANSWERED and res.sources[0]["passage_id"] == "test-a:1"
+    assert "الإنجليزية" in seen["answer_prompts"][0].split("لغة الجواب:")[1].splitlines()[0]
+
+
+def test_without_an_explicit_request_the_page_language_is_kept():
+    m, seen = model(answer_lang="")
+    m.ask("ماذا تحتاج النخلة في الصيف؟")
+    assert "الإنجليزية" not in seen["answer_prompts"][0].split("لغة الجواب:")[1].splitlines()[0]
+
+
+def test_understanding_keeps_up_to_five_search_phrases():
+    gen = ModelGenerator([("m", lambda s, u, schema=None: json.dumps(
+        {"question": "س؟", "answer_lang": "fr", "queries": [str(i) for i in range(8)]}))])
+    u = gen.understand("س؟", [])
+    assert u["queries"] == ["0", "1", "2", "3", "4"] and u["lang"] == ""

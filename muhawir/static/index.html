@@ -37,6 +37,11 @@
   .msg { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
          white-space: pre-line; }
   .msg.pending { color: var(--muted); }
+  .typing span { display: inline-block; width: 7px; height: 7px; margin: 0 2px; border-radius: 50%;
+                 background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
+  .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .typing span { animation: none; opacity: .6; } }
   .status { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .answer { margin: 0; }
   .cite { font-size: 12px; vertical-align: super; line-height: 0; margin-inline-start: 2px; }
@@ -111,7 +116,7 @@ const UI = {
         qlabel: "سؤالك", placeholder: "اكتب سؤالك هنا…", empty: "اكتب سؤالك أو تحدّث، وسأجيبك من المصادر.",
         style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
         mic: "🎤 تحدّث", micStop: "⏹ إيقاف", voiceNote: "عند استعمال الميكروفون قد يرسل متصفحك صوتك إلى خدمة خارجية لتحويله إلى نص.",
-        listen: "🔊 استمع", stop: "⏹ إيقاف", pending: "أبحث في المصادر…",
+        listen: "🔊 استمع", stop: "⏹ إيقاف", pending: "يكتب…",
         noVoice: "لا يوجد صوت عربي في هذا المتصفح. جرّب متصفح Edge، أو أضف اللغة العربية من إعدادات الكلام في جهازك.",
         views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
@@ -122,7 +127,7 @@ const UI = {
         qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
         style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
         mic: "🎤 Speak", micStop: "⏹ Stop", voiceNote: "When you use the microphone, your browser may send your voice to an outside service to turn it into text.",
-        listen: "🔊 Listen", stop: "⏹ Stop", pending: "Searching the sources…",
+        listen: "🔊 Listen", stop: "⏹ Stop", pending: "Typing…",
         noVoice: "This browser has no English voice. Try Edge, or add a voice in your device's speech settings.",
         views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
@@ -189,7 +194,7 @@ function pieces(text) {
 function listenButton(res) {
   const text = spokenText(res);
   if (!("speechSynthesis" in window) || !text) return null;
-  const speakLang = lang;
+  const speakLang = /[\u0600-\u06FF]/.test(text) ? "ar" : "en";  // the reply's own language, e.g. English on request
   const box = el("div", "tools");
   const btn = el("button", "link-btn", UI[speakLang].listen);
   btn.type = "button";
@@ -233,6 +238,7 @@ function renderAnswer(res, style) {
   // A claim that only repeats a passage word for word is already shown in its source card.
   const shown = new Set();  // passages whose text is itself the answer stay open
   const answer = el("p", "answer");
+  answer.dir = "auto";  // an English reply inside the Arabic page reads left to right
   for (const c of res.claims || []) {
     if (quoted.has(c.text)) { c.passage_ids.forEach((id) => shown.add(id)); continue; }
     if (answer.childNodes.length) answer.append(" ");
@@ -330,7 +336,9 @@ $("ask").addEventListener("submit", async (e) => {
   send.disabled = true;
   $("empty")?.remove();
   $("thread").append(el("div", "turn-user", question));
-  const pending = el("div", "msg pending", UI[lang].pending);
+  const pending = el("div", "msg pending typing");  // a typing indicator, no words
+  pending.setAttribute("role", "status"); pending.setAttribute("aria-label", UI[lang].pending);
+  for (let i = 0; i < 3; i++) pending.append(el("span"));
   $("thread").append(pending);
   $("q").value = "";
   scrollDown();

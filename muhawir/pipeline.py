@@ -20,7 +20,7 @@ from .normalize import STOPWORDS, normalize
 from .retrieve import Retriever, is_sufficient
 from .verify import Rejected, verify
 
-MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 8)  # passages offered to the model; fewer = faster on slow machines
+MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 12)  # passages offered to the model; fewer = faster on slow machines
 MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
 MAX_HADITH = 3  # live hadith results offered to the model, in addition to the passages above
 
@@ -148,6 +148,8 @@ class Muhawir:
                     if not u["question"]:  # no question in the message (e.g. only an insult): no judgement, an invitation
                         return Response(CHAT, TEXT[lang_ok]["no_question"], synthetic=self.corpus.synthetic)
                     queries = u["queries"]
+                    if u.get("lang") in LANGS:  # e.g. "the meaning of Tawhid in English": answer in English
+                        lang = u["lang"]
                     if normalize(u["question"]) != normalize(question):
                         understood = u["question"]
         res = self._ask(understood or question, style, lang, original=question, queries=queries)
@@ -190,14 +192,15 @@ class Muhawir:
             best: dict[str, object] = {}
             expand = getattr(self.generator, "expand", None)
             extra = queries if queries is not None else (expand(question) if expand else [])
-            queries = [question] + extra
-            for query in queries:
-                for h in self.retriever.search(query, k=MODEL_CANDIDATES):
-                    if h.coverage >= MODEL_MIN_COVERAGE and (
-                            h.passage.id not in best or h.score > best[h.passage.id].score):
-                        best[h.passage.id] = h
-            ranked = sorted(best.values(), key=lambda h: h.score, reverse=True)
-            passages = [h.passage for h in ranked[:MODEL_CANDIDATES]]
+            queries = extra + [question]  # phrases in the sources' own wording first, the user's words last
+            lists = [[h for h in self.retriever.search(query, k=MODEL_CANDIDATES) if h.coverage >= MODEL_MIN_COVERAGE]
+                     for query in queries]
+            # take turns between the phrases, so one long phrase with high scores cannot fill every place
+            for rank in range(MODEL_CANDIDATES):
+                for hits in lists:
+                    if rank < len(hits) and len(best) < MODEL_CANDIDATES:
+                        best.setdefault(hits[rank].passage.id, hits[rank])
+            passages = [h.passage for h in best.values()]
             if self.hadith_search:
                 live = self._hadith(queries)
                 passages += live
