@@ -18,7 +18,7 @@ from .generate import Generator
 from .messages import LANGS, STYLES, TEXT
 from .normalize import STOPWORDS, normalize
 from .retrieve import Retriever, is_sufficient
-from .verify import verify
+from .verify import Rejected, verify
 
 MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 8)  # passages offered to the model; fewer = faster on slow machines
 MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
@@ -210,6 +210,15 @@ class Muhawir:
             self.generator.last_note = self.generator.last_raw = ""
         draft = self.generator.generate(question, passages, style, lang, personal=personal)
         kept, rejected = verify(draft, corpus, allowed)
+        check = getattr(self.generator, "check_support", None)
+        if kept and check:  # second reading against the cited passages; fail closed if it cannot run
+            flags = check(kept, {p.id: p for p in passages})
+            if flags is None:
+                rejected += [Rejected(c, "support check could not run") for c in kept]
+                kept = []
+            else:
+                rejected += [Rejected(c, "not supported by the cited passage") for c, ok in zip(kept, flags) if not ok]
+                kept = [c for c, ok in zip(kept, flags) if ok]
         offered = f"{len(passages)} passages offered"
         if not kept:
             reason = "; ".join(r.reason for r in rejected) or getattr(self.generator, "last_note", "") or "no claims"

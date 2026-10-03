@@ -293,3 +293,56 @@ def test_json_with_text_around_it_is_read():
     assert parse_draft(raw)[0].text == "ت"
     assert parse_draft('```json\n{"abstain": false, "claims": [{"text": "ت", "passage_ids": ["a"]}]}') [0].text == "ت"
     assert parse_draft("لا أعرف") == []
+
+
+# --- second reading of each sentence against its passage --------------------
+
+def _checker(answer, verdict):
+    seen = []
+
+    def call(system, user, schema=None):
+        keys = json.dumps(schema or {})
+        if "supported" in keys:
+            seen.append(user)
+            if isinstance(verdict, Exception):
+                raise verdict
+            return json.dumps({"supported": verdict})
+        if "queries" in keys:
+            return '{"queries": []}'
+        return json.dumps(answer, ensure_ascii=False)
+    return Muhawir(CORPUS, ModelGenerator([("m", call)])), seen
+
+
+TWO = {"abstain": False, "claims": [{"text": "تحتاج النخلة إلى ماء كثير.", "passage_ids": ["test-a:1"]},
+                                    {"text": "لا تحتاج النخلة إلى الماء.", "passage_ids": ["test-a:1"]}]}
+
+
+@pytest.mark.real_check
+def test_sentence_not_supported_by_its_passage_is_dropped():
+    m, seen = _checker(TWO, [True, False])
+    res = m.ask(QUESTION)
+    assert res.status == ANSWERED and [c["text"] for c in res.claims] == ["تحتاج النخلة إلى ماء كثير."]
+    assert "[test-a:1]" in seen[0] and QUESTION not in seen[0]  # the check sees claims and passages only
+
+
+@pytest.mark.real_check
+def test_failed_support_check_fails_closed():
+    m, _ = _checker(TWO, RuntimeError("down"))
+    assert m.ask(QUESTION).status == ABSTAINED
+
+
+@pytest.mark.real_check
+def test_wrong_number_of_verdicts_fails_closed():
+    m, _ = _checker(TWO, [True])
+    assert m.ask(QUESTION).status == ABSTAINED
+
+
+def test_prose_answer_with_ids_becomes_claims():
+    raw = "الروح من أمر الله [test-a:1]. وهذه جملة بلا مصدر. وجملة ثالثة [b:1، q:2:3]."
+    claims = parse_draft(raw)
+    assert [(c.text, c.passage_ids) for c in claims] == [
+        ("الروح من أمر الله.", ("test-a:1",)), ("وجملة ثالثة.", ("b:1", "q:2:3"))]
+
+
+def test_attribution_and_exact_meaning_rules_are_in_the_instructions():
+    assert "فانسبه إلى قائله" in generate.SYSTEM_PROMPT and "لا تقلب نفيًا إلى إثبات" in generate.SYSTEM_PROMPT
