@@ -20,14 +20,25 @@ JUDGING_PEOPLE = "judging_people"    # out of scope: decline politely
 OVERRIDE = "override_attempt"        # keep the rules, explain, refer
 SMALL_TALK = "small_talk"            # greeting or thanks only: short fixed reply, no search
 
-_SMALL_TALK = re.compile(
-    r"^(?:(?:و ?)?(?:السلام عليكم(?: ورحمه الله(?: وبركاته)?)?|عليكم السلام(?: ورحمه الله(?: وبركاته)?)?|"
-    r"مرحبا|اهلا(?: وسهلا)?|صباح الخير|مساء الخير|شكرا(?: جزيلا)?|جزاك الله خيرا|بارك الله فيك|"
-    r"hello|hi|hey|salam|assalamu alaikum|thank you|thanks|thank you very much)\s*)+$")
+_GREETING = (r"السلام عليكم(?: ورحمه الله(?: وبركاته)?)?|عليكم السلام(?: ورحمه الله(?: وبركاته)?)?|"
+             r"مرحبا|اهلا(?: وسهلا)?|صباح الخير|مساء الخير|hello|hi|hey|salam|assalamu alaikum")
+_THANKS = (r"شكرا(?: جزيلا)?|جزاك(?:م)? الله(?: كل)? خيرا?|بارك الله فيك(?:م)?|فتح الله عليك(?:م)?|"
+           r"احسن الله اليك(?:م)?|thank you(?: very much)?|thanks|jazakallah(?: khair)?")
+
+
+def _only(phrases: str) -> re.Pattern:
+    return re.compile(rf"^(?:(?:و ?)?(?:{phrases})\s*)+$")
+
+
+_SMALL_TALK, _THANKS_ONLY = _only(f"{_GREETING}|{_THANKS}"), _only(_THANKS)
 
 
 def is_small_talk(question: str) -> bool:
     return bool(_SMALL_TALK.match(normalize(question)))
+
+
+def is_thanks(question: str) -> bool:
+    return bool(_THANKS_ONLY.match(normalize(question)))
 
 _PERSONAL = [re.compile(p) for p in (
     r"\bهل يجوز لي\b", r"\bيلزمني\b", r"\bتلزمني\b", r"\bهل علي\b", r"\bفي حالتي\b",

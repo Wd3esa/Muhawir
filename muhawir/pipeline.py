@@ -82,7 +82,8 @@ class Muhawir:
         question = (question or "").strip()
         lang_ok = lang if lang in LANGS else "ar"
         if question and len(question) <= MAX_QUESTION_CHARS and classify.is_small_talk(question):
-            return Response(CHAT, TEXT[lang_ok]["small_talk"], synthetic=self.corpus.synthetic)
+            reply = "thanks" if classify.is_thanks(question) else "small_talk"
+            return Response(CHAT, TEXT[lang_ok][reply], synthetic=self.corpus.synthetic)
         turns = [{"role": t.get("role"), "text": str(t.get("text", ""))[:MAX_TURN_CHARS]}
                  for t in (history or []) if isinstance(t, dict) and t.get("role") in ("user", "assistant")]
         turns = turns[-MAX_HISTORY_TURNS:]

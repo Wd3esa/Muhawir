@@ -79,3 +79,11 @@ def test_history_is_trimmed():
 
 def test_no_conclusions_rule_is_in_the_instructions():
     assert "لا تستنتج من عندك خلاصة" in generate.SYSTEM_PROMPT
+
+
+def test_thanks_and_dua_get_a_thanks_reply():
+    m, _ = model()
+    for text in ("جزاك الله خير وفتح الله عليك", "جزاك الله خيرًا", "شكرًا", "بارك الله فيكم", "Thank you"):
+        res = m.ask(text)
+        assert res.status == CHAT and res.message.startswith(("وإياك", "You are welcome")), text
+    assert m.ask("السلام عليكم").message.startswith("أهلًا")

@@ -10,6 +10,7 @@ TEXT = {
         "no_reason": {"ayah": "لم يُذكر لهذه الآية ({where}) سبب نزول في مصدر أسباب النزول المعتمد لدي: «{source}».",
                       "surah": "لم يُذكر ل{where} سبب نزول في مصدر أسباب النزول المعتمد لدي: «{source}»."},
         "small_talk": "أهلًا بك. اكتب سؤالك عن الإسلام، وسأبحث لك عنه في المصادر المعتمدة.",
+        "thanks": "وإياك، بارك الله فيك. إن كان لديك سؤال آخر فاكتبه.",
         "personal_case": "سؤالك عن حالة شخصية، والحكم فيها يحتاج فتوى من مختص يسمع تفاصيلها. "
                          "أنصحك بسؤال جهة فتوى مؤهلة في بلدك.",
         "personal_case_info": "هذه معلومات عامة من المصادر، وليست حكمًا في حالتك:",
@@ -29,6 +30,7 @@ TEXT = {
         "no_reason": {"ayah": "The reasons-of-revelation source I rely on, «{source}», records no reason of revelation for this ayah ({where}).",
                       "surah": "The reasons-of-revelation source I rely on, «{source}», records no reason of revelation for {where}."},
         "small_talk": "Welcome. Ask your question about Islam, and I will look for it in the approved sources.",
+        "thanks": "You are welcome, may Allah bless you. If you have another question, go ahead.",
         "personal_case": "Your question is about a personal situation. A ruling on it needs a fatwa "
                          "from a qualified scholar who hears the details. Please ask a qualified "
                          "fatwa body in your country.",
