@@ -39,7 +39,11 @@
   .msg.pending { color: var(--muted); }
   .status { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .understood { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-  .claim { margin: 6px 0 0; }
+  .answer { margin: 0; }
+  .cite { font-size: 12px; vertical-align: super; line-height: 0; margin-inline-start: 2px; }
+  .cite a { text-decoration: none; }
+  .sources-title { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+  .card .num { color: var(--accent); margin-inline-end: 6px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
   .card summary, .views summary { cursor: pointer; font-weight: 600; font-size: 16px; }
   .card[open] summary, .views[open] summary { margin-bottom: 6px; }
@@ -111,7 +115,7 @@ const UI = {
         views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
-        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
+        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", sources: "المصادر", source: "المصدر", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "", chat: "" } },
   en: { lang: "Language", tagline: "Helps you answer your questions about Islam, fiqh and creed from approved, trusted sources, and refers you to a specialist when you ask for a fatwa.",
         qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
@@ -121,7 +125,7 @@ const UI = {
         views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
-        topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", open: "Open source", error: "Could not connect. Please try again.",
+        topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", sources: "Sources", source: "Source", open: "Open source", error: "Could not connect. Please try again.",
         status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "", chat: "" } }
 };
 const $ = (id) => document.getElementById(id);
@@ -183,16 +187,35 @@ function renderAnswer(res, style) {
   const t = UI[lang];
   $("synthetic").hidden = !res.synthetic;
   const msg = el("div", "msg");
-  if (t.status[res.status]) msg.append(el("div", "status", t.status[res.status]));
   if (res.understood) msg.append(el("div", "understood", t.understood + res.understood));
   if (res.message) msg.append(el("div", "", res.message));
+  // Sources are numbered; each sentence of the answer carries the numbers of the sources it rests on.
+  const number = new Map((res.sources || []).map((s, i) => [s.passage_id, i + 1]));
+  const cardFor = new Map();
   const quoted = new Set((res.sources || []).map((s) => `«${s.quote}»`));
   // A claim that only repeats a passage word for word is already shown in its source card.
   const shown = new Set();  // passages whose text is itself the answer stay open
+  const answer = el("p", "answer");
   for (const c of res.claims || []) {
-    if (quoted.has(c.text)) c.passage_ids.forEach((id) => shown.add(id));
-    else msg.append(el("p", "claim", c.text));
+    if (quoted.has(c.text)) { c.passage_ids.forEach((id) => shown.add(id)); continue; }
+    if (answer.childNodes.length) answer.append(" ");
+    answer.append(c.text);
+    const sup = el("span", "cite");
+    for (const id of new Set(c.passage_ids)) {
+      const n = number.get(id);
+      if (!n) continue;
+      const a = el("a", "", `[${n}]`);
+      a.href = "#"; a.title = t.source;
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        const card = cardFor.get(id);
+        if (card) { card.open = true; card.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+      });
+      sup.append(a);
+    }
+    if (sup.childNodes.length) answer.append(sup);
   }
+  if (answer.childNodes.length) msg.append(answer);
   if (res.note) msg.append(el("p", "note", res.note));
   if ((res.views || []).length) {
     const panel = el("details", "views");
@@ -205,12 +228,16 @@ function renderAnswer(res, style) {
     }
     msg.append(panel);
   }
+  if ((res.sources || []).length) msg.append(el("div", "sources-title", t.sources));
   for (const s of res.sources || []) {
     const card = el("details", "card");
     card.open = open || shown.has(s.passage_id);
+    cardFor.set(s.passage_id, card);
     // a hadith shows its grading in the folded line, so it is never seen without it
-    card.append(el("summary", "", s.kind === "hadith"
-      ? `${t.hadith} (${t.grade}: ${s.grade}) · ${s.source_name}` : `${s.source_name} · ${s.location}`));
+    const summary = el("summary");
+    summary.append(el("span", "num", `[${number.get(s.passage_id)}]`), s.kind === "hadith"
+      ? `${t.hadith} (${t.grade}: ${s.grade}) · ${s.source_name}` : `${s.source_name} · ${s.location}`);
+    card.append(summary);
     card.append(el("div", "about", s.source_about));
     card.append(el("blockquote", "", s.quote));
     if (s.topics) card.append(el("div", "meta", `${t.topics}: ${s.topics}`));
