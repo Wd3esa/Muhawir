@@ -163,31 +163,48 @@ def load_json(raw: str):
     return json.loads(text)
 
 
+_ID_WRAP = " \t\n[](){}<>«»\"'"
+
+
+def _ids(value) -> tuple[str, ...] | None:
+    """Passage ids as the model wrote them, tolerating a single string and brackets around ids.
+    Whether each id was really retrieved is checked later by the verifier."""
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list) or not all(isinstance(i, str) for i in value):
+        return None
+    ids = tuple(i.strip(_ID_WRAP) for i in value if i.strip(_ID_WRAP))
+    return ids or None
+
+
 def parse_draft(raw: str) -> list[Claim]:
-    """Claims from the model's JSON. Anything malformed counts as abstaining."""
+    """Claims from the model's JSON. An explicit abstain, or nothing usable, counts as abstaining.
+
+    Open models without enforced JSON schemas sometimes leave out "abstain", write it as a
+    string, or add one malformed item; those cases no longer discard the usable claims.
+    The verifier still checks every claim that is kept."""
     try:
         data = load_json(raw)
     except (TypeError, ValueError):
         return []
-    if not isinstance(data, dict) or data.get("abstain") is not False:
+    if not isinstance(data, dict):
+        return []
+    abstain = data.get("abstain", False)
+    if abstain is True or (isinstance(abstain, str) and abstain.strip().lower() in ("true", "yes", "نعم")):
         return []
     claims = []
     for item in data.get("claims") or []:
         if not isinstance(item, dict):
-            return []
-        text, ids = item.get("text"), item.get("passage_ids")
-        if not isinstance(text, str) or not text.strip() or not isinstance(ids, list) \
-                or not all(isinstance(i, str) for i in ids):
-            return []
-        claims.append(Claim(text.strip(), tuple(ids)))
+            continue
+        text, ids = item.get("text"), _ids(item.get("passage_ids"))
+        if isinstance(text, str) and text.strip() and ids:
+            claims.append(Claim(text.strip(), ids))
     for item in data.get("views") or []:
         if not isinstance(item, dict):
-            return []
-        school, text, ids = item.get("school"), item.get("text"), item.get("passage_ids")
-        if not all(isinstance(x, str) and x.strip() for x in (school, text)) \
-                or not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
-            return []
-        claims.append(Claim(text.strip(), tuple(ids), school.strip()))
+            continue
+        school, text, ids = item.get("school"), item.get("text"), _ids(item.get("passage_ids"))
+        if all(isinstance(x, str) and x.strip() for x in (school, text)) and ids:
+            claims.append(Claim(text.strip(), ids, school.strip()))
     return claims
 
 
@@ -217,6 +234,7 @@ class ModelGenerator:
         self.calls = calls
         self.name = "+".join(name for name, _ in calls)
         self.last_used = ""
+        self.last_note = ""  # why the last answer step produced nothing, for the server log
 
     def expand(self, question: str) -> list[str]:
         """Up to three Arabic search phrases for retrieval. Failure returns []."""
@@ -262,9 +280,16 @@ class ModelGenerator:
             self.last_used = name
             claims = parse_draft(raw)
             if not claims:
-                log.info("model %s abstained or returned an unusable draft", name)
+                try:
+                    data = load_json(raw)
+                    said = "abstained" if isinstance(data, dict) and data.get("abstain") not in (False, None, "false") \
+                        else "gave no usable claims"
+                except (TypeError, ValueError):
+                    said = "replied with text that is not JSON"
+                self.last_note = f"model {name} {said}"
             return claims
         self.last_used = ""
+        self.last_note = "every model call failed"
         return []
 
 

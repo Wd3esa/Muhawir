@@ -15,6 +15,7 @@ import hashlib
 import html
 import logging
 import re
+import time
 
 from .corpus import Passage, Source
 
@@ -28,6 +29,11 @@ SOURCE = Source(
 )
 KIND = "hadith"
 TIMEOUT = 8.0
+# identifies Muhawir honestly; it does not pretend to be a browser
+HEADERS = {"User-Agent": "Muhawir/0.1 (educational Islamic Q&A; https://github.com/Wd3esa/muhawir)",
+           "Accept": "application/json"}
+REFUSED_PAUSE = 3600  # after dorar refuses (HTTP 403), stop asking for an hour instead of on every question
+_refused_until = 0.0
 log = logging.getLogger("muhawir")
 
 _TAG = re.compile(r"<[^>]+>")
@@ -72,11 +78,17 @@ def search(query: str, limit: int = 3, timeout: float = TIMEOUT) -> list[Passage
     """Up to `limit` hadiths for `query`; [] when dorar cannot be reached or finds nothing."""
     import httpx
 
+    global _refused_until
     query = (query or "").strip()
-    if not query:
+    if not query or time.time() < _refused_until:
         return []
     try:
-        r = httpx.get(API, params={"skey": query}, timeout=timeout, follow_redirects=True)
+        r = httpx.get(API, params={"skey": query}, headers=HEADERS, timeout=timeout, follow_redirects=True)
+        if r.status_code == 403:
+            _refused_until = time.time() + REFUSED_PAUSE
+            log.warning("dorar.net refused the hadith search (HTTP 403); not asking again for an hour. "
+                        "Its permission is needed for server-side use.")
+            return []
         r.raise_for_status()
         found = parse(r.json().get("ahadith", {}).get("result", ""))
     except Exception as exc:  # network, format change: answer from the other sources

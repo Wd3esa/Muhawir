@@ -267,3 +267,22 @@ def test_passage_ids_written_in_the_answer_are_hidden():
     res = engine({"abstain": False, "claims": [
         {"text": "تحتاج النخلة إلى ماء كثير [test-a:1].", "passage_ids": ["test-a:1"]}]}).ask(QUESTION)
     assert res.claims[0]["text"] == "تحتاج النخلة إلى ماء كثير."
+
+
+def test_open_model_json_slips_do_not_discard_good_claims():
+    good = {"text": "ماء كثير.", "passage_ids": ["[test-a:1]"]}
+    assert parse_draft(json.dumps({"claims": [good]}))[0].passage_ids == ("test-a:1",)   # no "abstain"
+    assert parse_draft(json.dumps({"abstain": "false", "claims": [good]}))                # string
+    assert parse_draft(json.dumps({"abstain": False, "claims": [{"text": 1}, good]}))     # one bad item
+    assert parse_draft(json.dumps({"abstain": False, "claims": [dict(good, passage_ids="test-a:1")]}))
+    assert parse_draft(json.dumps({"abstain": True, "claims": [good]})) == []
+    assert parse_draft(json.dumps({"abstain": "true", "claims": [good]})) == []
+
+
+def test_reason_for_not_answering_is_logged_without_the_question(caplog, monkeypatch):
+    from muhawir import pipeline
+    monkeypatch.setattr(pipeline, "DEBUG", True)
+    caplog.set_level("WARNING", logger="muhawir")
+    res = engine({"abstain": False, "claims": [{"text": "قال: «نص مختلق»", "passage_ids": ["test-a:1"]}]}).ask(QUESTION)
+    assert res.status == ABSTAINED and "quotation not found" in res.why
+    assert "not answered" in caplog.text and QUESTION not in caplog.text

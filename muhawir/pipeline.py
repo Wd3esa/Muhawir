@@ -6,6 +6,7 @@ stopped, and never answers when retrieval found nothing sufficient.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import asdict, dataclass, field
@@ -27,6 +28,8 @@ MAX_QUESTION_CHARS = 500
 
 ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT = (
     "answered", "abstained", "referred", "declined", "invalid", "chat")
+DEBUG = os.environ.get("MUHAWIR_DEBUG") == "1"  # adds the reason for not answering to each response
+log = logging.getLogger("muhawir")
 MAX_HISTORY_TURNS = 6
 MAX_TURN_CHARS = 600
 
@@ -41,6 +44,7 @@ class Response:
     note: str = ""
     views: list[dict] = field(default_factory=list)  # scholars' views as named in the sources
     understood: str = ""  # the follow-up question as rewritten for search, when it differs
+    why: str = ""  # with MUHAWIR_DEBUG=1: why there is no answer (never contains the question)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -88,6 +92,13 @@ class Muhawir:
         if missing:
             return Response(ABSTAINED, t["no_reason"][missing["what"]].format(**missing), synthetic=synthetic)
         return Response(ABSTAINED, t["abstain"], synthetic=synthetic)
+
+    @staticmethod
+    def _why(res: Response, reason: str) -> Response:
+        log.warning("not answered: %s", reason[:500])
+        if DEBUG:
+            res.why = reason[:500]
+        return res
 
     def _hadith(self, queries: list[str]) -> list[Passage]:
         found: dict[str, Passage] = {}
@@ -190,24 +201,29 @@ class Muhawir:
         if not passages:
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
-            return self._abstain(question, t, synthetic)
+            return self._why(self._abstain(question, t, synthetic), "search found no passage")
 
         allowed = {p.id for p in passages}
         live = [p for p in passages if self.corpus.passage(p.id) is None]
         corpus = _WithLive(self.corpus, live, {self.hadith_source.id: self.hadith_source}) if live else self.corpus
-        kept, _rejected = verify(
-            self.generator.generate(question, passages, style, lang, personal=personal),
-            corpus, allowed)
+        if hasattr(self.generator, "last_note"):
+            self.generator.last_note = ""
+        draft = self.generator.generate(question, passages, style, lang, personal=personal)
+        kept, rejected = verify(draft, corpus, allowed)
+        offered = f"{len(passages)} passages offered"
         if not kept:
+            reason = "; ".join(r.reason for r in rejected) or getattr(self.generator, "last_note", "") or "no claims"
             if personal:
-                return Response(REFERRED, t["personal_case"], synthetic=synthetic)
-            return self._abstain(question, t, synthetic)
+                return self._why(Response(REFERRED, t["personal_case"], synthetic=synthetic), f"{offered}; {reason}")
+            return self._why(self._abstain(question, t, synthetic), f"{offered}; {reason}")
+        if rejected:
+            log.warning("some claims dropped: %s", "; ".join(r.reason for r in rejected)[:500])
 
         answer = [c for c in kept if not c.school]
         if not answer:  # views alone, without a sourced answer, are not shown
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
-            return self._abstain(question, t, synthetic)
+            return self._why(self._abstain(question, t, synthetic), f"{offered}; only scholars' views, no sourced answer")
         claims = [{"text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)} for c in answer]
         views = [{"school": c.school, "text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)}
                  for c in kept if c.school]

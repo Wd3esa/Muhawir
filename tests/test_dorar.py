@@ -108,3 +108,19 @@ def test_no_live_search_with_synthetic_test_data():
     engine(lambda user: {"abstain": True, "claims": []}, search=lambda q: calls.append(q) or LIVE,
            synthetic=True).ask("النية والعمل")
     assert calls == []
+
+
+def test_refusal_pauses_further_requests(monkeypatch):
+    import httpx
+    calls = []
+
+    class Refused:
+        status_code = 403
+
+    def get(*a, **k):
+        calls.append(k.get("headers", {}).get("User-Agent", ""))
+        return Refused()
+    monkeypatch.setattr(httpx, "get", get)
+    monkeypatch.setattr(dorar, "_refused_until", 0.0)
+    assert dorar.search("نص") == [] and dorar.search("نص آخر") == []
+    assert len(calls) == 1 and calls[0].startswith("Muhawir/")

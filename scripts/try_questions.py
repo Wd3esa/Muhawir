@@ -7,6 +7,7 @@ way of answering objections; no text from the book is used. Some questions are
 deliberately worded with mockery, to check that Muhawir answers the question
 calmly and never judges the person.
 
+Start the server with MUHAWIR_DEBUG=1 to see why a question was not answered.
 Usage (with the server running):  python scripts/try_questions.py [--url http://localhost:8000] [--style youth]
 """
 from __future__ import annotations
@@ -32,13 +33,13 @@ QUESTIONS = [
     ("question", "ماذا يقول القرآن عمّن تراوده الشكوك؟"),
     ("question", "ما معنى لا إله إلا الله؟"),
     ("question", "ما هي الشفاعة؟"),
+    ("follow-up", "ومن الذي يشفع يوم القيامة؟"),
     ("objection", "لماذا لا يُرينا الله معجزة اليوم حتى نؤمن؟"),
     ("objection", "لماذا تتركون متع الدنيا من أجل آخرة لم يرها أحد؟"),
     ("mockery", "دينكم مليء بالخرافات، قولوا لي إذن من خلق ربكم؟"),
     ("mockery", "يا أصحاب الخرافات، لماذا خلق إلهكم الشر إذا كان رحيمًا كما تزعمون؟"),
     ("mockery-only", "كلامكم سخيف ولا يصدقه عاقل"),
     ("mockery-only", "هههه أنتم تصدقون أي شيء"),
-    ("follow-up", "وما الدليل على ذلك من القرآن؟"),
     ("english", "Why would a merciful God allow suffering?"),
 ]
 
@@ -66,6 +67,8 @@ def main() -> None:
             print(f"understood as: {res['understood']}")
         if res.get("message"):
             print(res["message"])
+        if res.get("why"):
+            print(f"why: {res['why']}")
         for c in res.get("claims", []):
             print(f"- {c['text']}  {c['passage_ids']}")
         for s in res.get("sources", []):
