@@ -18,6 +18,7 @@ _HEADING_WORDS = frozenset(tokenize(
     "كتاب الجملة الباب الفصل القسم المسألة معرفة الأول الأولى الثاني الثانية الثالث الثالثة الرابع "
     "الرابعة الخامس الخامسة السادس السادسة السابع السابعة الثامن الثامنة فيه فيها وهو وهي هذه"))
 MAX_SECTIONS = 2
+MAX_CHAPTERS = 2
 MIN_SHARED = 2
 
 
@@ -56,23 +57,28 @@ class SectionIndex:
         return [(p.id, p.keywords) for p in getattr(corpus, "passages", []) if p.source_id == SOURCE_ID]
 
     def match(self, texts: list[str]) -> list[str]:
-        """Passage ids to offer first: the matching chapter's opening, then the best sections."""
+        """Passage ids to offer first: the openings of the matching chapters (the general one first,
+        e.g. «كتاب الزكاة» before «كتاب زكاة الفطر»), then the best matching sections; when no section
+        of the general chapter matches, its second section's opening, which usually follows the overview."""
         words = [_topic(t) for t in texts if t]
         if not words or not self.chapters and not self.sections:
             return []
         every = set().union(*words)
-        chapters = [c for c in self.chapters if _topic(c) and _topic(c) <= every]
-        chapter = max(chapters, key=lambda c: len(_topic(c)), default="")
+        chapters = sorted((c for c in self.chapters if _topic(c) and _topic(c) <= every),
+                          key=lambda c: len(_topic(c)))[:MAX_CHAPTERS]
+        out = [self.chapters[c] for c in chapters]
         scored = []
         for ch, pid, topic in self.sections:
-            if chapter and ch != chapter or not topic:
+            if chapters and ch not in chapters or not topic:
                 continue
             shared = max(len(topic & w) for w in words)
             if shared >= MIN_SHARED and shared / len(topic) >= 0.5:
-                scored.append((shared, shared / len(topic), pid))
+                scored.append((shared, shared / len(topic), pid, ch))
         scored.sort(reverse=True)
-        out = [self.chapters[chapter]] if chapter else []
-        for _, _, pid in scored[:MAX_SECTIONS]:
+        for _, _, pid, _ in scored[:MAX_SECTIONS]:
             if pid not in out:
                 out.append(pid)
+        if chapters and not any(ch == chapters[0] for *_, ch in scored[:MAX_SECTIONS]):
+            following = [pid for ch, pid, _ in self.sections if ch == chapters[0] and pid not in out]
+            out += following[:1]
         return out

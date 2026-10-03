@@ -264,10 +264,12 @@ function renderAnswer(res, style) {
   answer.dir = "auto";  // an English reply inside the Arabic page reads left to right
   // types, kinds, conditions or steps: a short lead sentence, then one item per line
   const items = res.as_list && sentences.length > 1 ? el("ul", "answer-list") : null;
+  // the first sentence leads the list only when it introduces it (ends with a colon)
+  const lead = items && /[:：]\s*$/.test(sentences[0].text);
   if (items) items.dir = "auto";
   sentences.forEach((c, i) => {
     const sup = cite(c);
-    if (items && i > 0) {
+    if (items && (i > 0 || !lead)) {
       const li = el("li", "", c.text);
       if (sup.childNodes.length) li.append(sup);
       items.append(li);

@@ -235,3 +235,21 @@ def test_example_ids_are_never_accepted_as_sources():
     from muhawir.verify import Claim, verify
     kept, rejected = verify([Claim("نص.", ("x1",))], CORPUS, {"test-a:1"})
     assert kept == [] and rejected
+
+
+def test_message_without_a_question_right_after_an_answer_offers_to_explain_again():
+    m, _ = model(rewrite="")
+    res = m.ask("أنت غبي", history=HISTORY)
+    assert res.status == CHAT and "لم يكن واضحًا" in res.message
+
+
+def test_kinds_question_is_shown_as_a_list_even_if_the_model_did_not_mark_it():
+    def call(system, user, schema=None):
+        keys = json.dumps(schema or {})
+        if '"question"' in keys:
+            return json.dumps({"question": "ماذا تحتاج النخلة في الصيف؟", "translate": "", "answer_lang": "",
+                               "kind": "how", "reexplain": False, "queries": []}, ensure_ascii=False)
+        return json.dumps({"plan": "", "abstain": False, "as_list": False, "views": [], "claims": [
+            {"text": "الماء.", "passage_ids": ["test-a:1"]}, {"text": "الشمس.", "passage_ids": ["test-a:1"]}]},
+            ensure_ascii=False)
+    assert Muhawir(CORPUS, ModelGenerator([("m", call)])).ask("ماذا تحتاج النخلة في الصيف؟").as_list is True

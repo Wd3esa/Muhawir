@@ -176,7 +176,10 @@ class Muhawir:
                 u = understand(question, turns)
                 if u is not None:
                     if not u["question"]:  # no question in the message (e.g. only an insult): no judgement, an invitation
-                        return Response(CHAT, TEXT[lang_ok]["no_question"], synthetic=self.corpus.synthetic)
+                        # right after an answer, it usually means the answer did not help: offer to explain again
+                        after = any(t["role"] == "assistant" for t in turns)
+                        reply = "no_question_after_answer" if after else "no_question"
+                        return Response(CHAT, TEXT[lang_ok][reply], synthetic=self.corpus.synthetic)
                     if u.get("translate"):  # a language request, not a question: translate it, nothing more
                         text = u["translate"]
                         target = u.get("lang") if u.get("lang") in LANGS else ("en" if _ARABIC.search(text) else "ar")
@@ -310,5 +313,6 @@ class Muhawir:
         res = Response(ANSWERED, "", claims, cards, synthetic, note, views)
         if DEBUG and dropped:
             res.why = dropped
-        res.as_list = bool(getattr(self.generator, "last_as_list", False)) and len(claims) > 1
+        # kinds, conditions, pillars or steps are always shown as a list, whatever the model marked
+        res.as_list = (bool(getattr(self.generator, "last_as_list", False)) or kind == "how") and len(claims) > 1
         return res

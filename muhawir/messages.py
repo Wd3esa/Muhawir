@@ -14,6 +14,7 @@ TEXT = {
         "unavailable": "الخدمة غير متاحة مؤقتًا، فلم أستطع البحث والإجابة الآن. حاول مرة أخرى بعد قليل.",
         "small_talk": "أهلًا بك. اكتب سؤالك عن الإسلام، وسأبحث لك عنه في المصادر المعتمدة.",
         "translation_label": "ترجمة لغوية، وليست جوابًا من المصادر.",
+        "no_question_after_answer": "يبدو أن جوابي لم يكن واضحًا أو لم يكن ما تريده. هل أشرحه لك بطريقة أبسط؟ أو اكتب سؤالك بطريقة أخرى، وسأحاول من جديد.",
         "no_question": "أنا هنا لأحاورك وأجيبك عن أسئلتك عن الإسلام من المصادر المعتمدة. ما الذي تحب أن تعرفه؟",
         "thanks": "وإياك، بارك الله فيك. إن كان لديك سؤال آخر فاكتبه.",
         "personal_case": "سؤالك عن حالة شخصية، والحكم فيها يحتاج فتوى من مختص يسمع تفاصيلها. "
@@ -40,6 +41,7 @@ TEXT = {
         "unavailable": "The service is temporarily unavailable, so I could not search and answer right now. Please try again shortly.",
         "small_talk": "Welcome. Ask your question about Islam, and I will look for it in the approved sources.",
         "translation_label": "A language translation, not an answer from the sources.",
+        "no_question_after_answer": "It seems my answer was not clear, or not what you wanted. Shall I explain it more simply? Or ask your question another way and I will try again.",
         "no_question": "I am here to talk with you and answer your questions about Islam from the approved sources. What would you like to know?",
         "thanks": "You are welcome, may Allah bless you. If you have another question, go ahead.",
         "personal_case": "Your question is about a personal situation. A ruling on it needs a fatwa "
