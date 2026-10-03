@@ -38,6 +38,22 @@ class Rejected:
     reason: str
 
 
+# a school may be named by its founder or its followers: «الحنفية» is named when the passage says «أبو حنيفة»
+_SCHOOLS = [("حنيفه", "حنفيه", "احناف"), ("مالك", "مالكيه"), ("شافعي", "شافعيه"),
+            ("احمد", "حنبل", "حنابله")]
+
+
+def school_names(school: str) -> list[str]:
+    """Normalized names that count as naming this school in a passage (the school as written, plus its
+    founder or followers for the four schools)."""
+    own = normalize(school)
+    names = [own] if own else []
+    for group in _SCHOOLS:
+        if any(g in own for g in group):
+            names += list(group)
+    return names
+
+
 def quotes_in(text: str) -> list[str]:
     return [q for m in _QUOTES.finditer(text) for q in [next(g for g in m.groups() if g)] if _ARABIC.search(q)]
 
@@ -64,8 +80,8 @@ def verify(claims: list[Claim], corpus: Corpus,
         if bad:
             rejected.append(Rejected(claim, f"quotation not found verbatim: {bad}"))
             continue
-        if claim.school and not any(normalize(claim.school) in normalize(corpus.passage(pid).text)
-                                    for pid in claim.passage_ids):
+        if claim.school and not any(name in normalize(corpus.passage(pid).text)
+                                    for name in school_names(claim.school) for pid in claim.passage_ids):
             rejected.append(Rejected(claim, f"'{claim.school}' is not named in the cited passage"))
             continue
         kept.append(claim)

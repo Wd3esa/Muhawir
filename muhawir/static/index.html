@@ -123,7 +123,7 @@ const UI = {
         mic: "🎤 تحدّث", micStop: "⏹ إيقاف", voiceNote: "عند استعمال الميكروفون قد يرسل متصفحك صوتك إلى خدمة خارجية لتحويله إلى نص.",
         listen: "🔊 استمع", stop: "⏹ إيقاف", pending: "يكتب…",
         noVoice: "لا يوجد صوت عربي في هذا المتصفح. جرّب متصفح Edge، أو أضف اللغة العربية من إعدادات الكلام في جهازك.",
-        views: "أقوال العلماء كما وردت في المصادر",
+        views: "أقوال المذاهب",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
         topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", sources: "المصادر", source: "المصدر", verify: "تحقق في الدرر السنية", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
@@ -134,7 +134,7 @@ const UI = {
         mic: "🎤 Speak", micStop: "⏹ Stop", voiceNote: "When you use the microphone, your browser may send your voice to an outside service to turn it into text.",
         listen: "🔊 Listen", stop: "⏹ Stop", pending: "Typing…",
         noVoice: "This browser has no English voice. Try Edge, or add a voice in your device's speech settings.",
-        views: "Scholars' views as stated in the sources",
+        views: "The schools' views",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
         topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", sources: "Sources", source: "Source", verify: "Check on dorar.net", open: "Open source", error: "Could not connect. Please try again.",
@@ -281,12 +281,13 @@ function renderAnswer(res, style) {
   const sectioned = sentences.some((c) => c.section);
   if (sectioned) {
     // a short definition, then each part under its own heading, as a list
-    let block = null, current = null;
+    let block = null, current = null, outro = null;
     const intro = paragraph();
     for (const c of sentences) {
-      if (!c.section) {
-        if (block) { const li = el("li"); fill(li, c); block.append(li); }
-        else { if (intro.childNodes.length) intro.append(" "); fill(intro, c); }
+      if (!c.section) {  // before the first heading: the definition; after the parts: a closing line
+        const p = block ? (outro || (outro = paragraph())) : intro;
+        if (p.childNodes.length) p.append(" ");
+        fill(p, c);
         continue;
       }
       if (c.section !== current) {
@@ -299,6 +300,7 @@ function renderAnswer(res, style) {
       const li = el("li"); fill(li, c); block.append(li);
     }
     if (intro.childNodes.length && !intro.parentNode) msg.prepend(intro);
+    if (outro) msg.append(outro);
   } else {
     const answer = paragraph();
     // types, kinds, conditions or steps: a short lead sentence, then one item per line
@@ -315,15 +317,24 @@ function renderAnswer(res, style) {
   }
   if (res.note) msg.append(el("p", "note", res.note));
   if ((res.views || []).length) {
-    const panel = el("details", "views");
-    panel.open = true;  // the scholars' views are the answer to a ruling question: shown, not hidden
-    panel.append(el("summary", "", t.views));
-    for (const v of res.views) {
-      const row = el("p", "view");
-      row.append(el("strong", "", v.school + ": "), document.createTextNode(v.text));
-      panel.append(row);
+    // the schools' views are the heart of a disputed question: a heading inside the answer, each school in
+    // bold, in the usual order (Hanafi, Maliki, Shafi'i, Hanbali, then others), with its source numbers
+    const ORDER = [/حنيف|حنف|احناف|أحناف/, /مالك/, /شافع/, /أحمد|احمد|حنبل/];
+    const rank = (name) => { const i = ORDER.findIndex((re) => re.test(name)); return i < 0 ? ORDER.length : i; };
+    const views = [...res.views].sort((a, b) => rank(a.school) - rank(b.school));
+    const h = el("h4", "answer-section", t.views); h.dir = "auto";
+    const ul = el("ul", "answer-list school-views"); ul.dir = "auto";
+    for (const v of views) {
+      const li = el("li");
+      li.append(el("strong", "", v.school + ": "), document.createTextNode(v.text));
+      const sup = cite(v);
+      if (sup.childNodes.length) li.append(sup);
+      ul.append(li);
     }
-    msg.append(panel);
+    // placed right after the opening sentence(s) of the answer, before the other parts
+    const firstHeading = msg.querySelector(".answer-section");
+    if (firstHeading) { msg.insertBefore(h, firstHeading); msg.insertBefore(ul, firstHeading); }
+    else msg.append(h, ul);
   }
   if ((res.sources || []).length) msg.append(el("div", "sources-title", t.sources));
   for (const s of res.sources || []) {

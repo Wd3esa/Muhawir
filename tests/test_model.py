@@ -444,3 +444,17 @@ def test_own_explanation_is_shown_next_to_sourced_sentences_without_a_number():
                                          '{"queries": []}' if "queries" in json.dumps(schema or {}) else json.dumps(raw, ensure_ascii=False))]))
     res = m.ask(QUESTION)
     assert res.status == ANSWERED and [c["passage_ids"] for c in res.claims] == [["test-a:1"], []]
+
+
+def test_a_school_counts_as_named_by_its_founder_or_followers():
+    from muhawir.verify import school_names
+    from muhawir.normalize import normalize
+    text = normalize("وقال أبو حنيفة والثوري وأحمد: يقرؤها سرا، وقال الشافعي: جهرا، ومنع ذلك مالك.")
+    for school in ("الحنفية", "أبو حنيفة", "المالكية", "الشافعية", "الحنابلة", "أحمد"):
+        assert any(n in text for n in school_names(school)), school
+    assert not any(n in normalize("قال مالك.") for n in school_names("الشافعية"))
+
+
+def test_disputed_questions_show_the_schools_and_the_cause_of_disagreement():
+    assert "وضّح الاختلاف بين المذاهب بوضوح" in generate.SYSTEM_PROMPT
+    assert "«سبب الخلاف»" in generate.SYSTEM_PROMPT and "ولا ترجّح" in generate.SYSTEM_PROMPT
