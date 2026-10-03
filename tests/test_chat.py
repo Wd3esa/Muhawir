@@ -253,3 +253,44 @@ def test_kinds_question_is_shown_as_a_list_even_if_the_model_did_not_mark_it():
             {"text": "الماء.", "passage_ids": ["test-a:1"]}, {"text": "الشمس.", "passage_ids": ["test-a:1"]}]},
             ensure_ascii=False)
     assert Muhawir(CORPUS, ModelGenerator([("m", call)])).ask("ماذا تحتاج النخلة في الصيف؟").as_list is True
+
+
+def test_thoughts_of_self_harm_get_a_fixed_caring_reply_without_any_model():
+    m, seen = model()
+    for text in ("لم أعد أريد أن أعيش، أفكر أن أقتل نفسي", "I want to die", "أفكر في الانتحار", "سأنتحر"):
+        res = m.ask(text)
+        assert res.status == "referred" and "لست وحدك" in res.message or "not alone" in res.message
+    assert seen["standalone"] == 0 and seen["answer_prompts"] == []
+
+
+def _sad_model(question="", answer=None):
+    prompts = []
+
+    def call(system, user, schema=None):
+        keys = json.dumps(schema or {})
+        if '"question"' in keys:
+            return json.dumps({"question": question, "translate": "", "answer_lang": "", "feeling": "sad",
+                               "kind": "", "reexplain": False, "queries": []}, ensure_ascii=False)
+        prompts.append(user)
+        return json.dumps(answer or {"plan": "", "abstain": True, "as_list": False, "claims": [], "views": [],
+                                     "follow_up": ""}, ensure_ascii=False)
+    return Muhawir(CORPUS, ModelGenerator([("m", call)])), prompts
+
+
+def test_grief_without_a_question_gets_comfort_not_an_invitation():
+    m, prompts = _sad_model(question="")
+    res = m.ask("توفي أبي وأنا حزين جدًا", history=HISTORY)
+    assert res.status == CHAT and "يربط على قلبك" in res.message and prompts == []
+
+
+def test_grief_is_answered_gently_and_never_told_not_found():
+    m, prompts = _sad_model(question="ماذا تحتاج النخلة في الصيف؟")
+    res = m.ask("ماتت أمي وأنا حزين")
+    assert "السائل حزين أو يمر بمصيبة" in prompts[0]  # the answer step is told to comfort first
+    assert res.status == CHAT and "يربط على قلبك" in res.message  # the model abstained: comfort, not «لم أجد»
+
+
+def test_a_question_about_the_ruling_on_suicide_is_answered_with_a_caring_line():
+    from muhawir import classify
+    assert classify.check("ما حكم الانتحار في الإسلام؟").kind is None
+    assert classify.mentions_suicide("ما حكم الانتحار في الإسلام؟")

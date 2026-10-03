@@ -180,6 +180,9 @@ class Muhawir:
         the answer itself still comes from retrieved passages alone."""
         question = (question or "").strip()
         lang_ok = lang if lang in LANGS else "ar"
+        if question and classify.check(question[:MAX_QUESTION_CHARS * 2]).kind == classify.CRISIS:
+            # thoughts of suicide or self-harm: a fixed caring reply that points to people and help now; no model
+            return Response(REFERRED, TEXT[lang_ok]["crisis"], synthetic=self.corpus.synthetic)
         if question and len(question) <= MAX_QUESTION_CHARS and classify.is_small_talk(question):
             reply = "thanks" if classify.is_thanks(question) else "small_talk"
             return Response(CHAT, TEXT[lang_ok][reply], synthetic=self.corpus.synthetic)
@@ -192,7 +195,7 @@ class Muhawir:
                 return Response(ABSTAINED, TEXT[lang_ok]["no_reason"][missing["what"]].format(**missing),
                                 synthetic=self.corpus.synthetic)
         understand = getattr(self.generator, "understand", None)
-        understood, queries, previous, kind = "", None, "", ""
+        understood, queries, previous, kind, feeling = "", None, "", "", ""
         if question and understand and len(question) <= MAX_QUESTION_CHARS:
             gate = classify.check(question)  # the user's own words are checked before any rewording
             if gate.kind not in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
@@ -200,6 +203,8 @@ class Muhawir:
                 if u is None:  # understanding failed: do not spend another call on search phrases, answer directly
                     queries = []
                 if u is not None:
+                    if not u["question"] and u.get("feeling") == "sad":  # sorrow without a question: comfort first
+                        return Response(CHAT, TEXT[lang_ok]["comfort"], synthetic=self.corpus.synthetic)
                     if not u["question"]:  # no question in the message (e.g. only an insult): no judgement, an invitation
                         # right after an answer, it usually means the answer did not help: offer to explain again
                         after = any(t["role"] == "assistant" for t in turns)
@@ -215,6 +220,7 @@ class Muhawir:
                                         note=TEXT[lang_ok]["translation_label"])
                     queries = u["queries"]
                     kind = u.get("kind", "")
+                    feeling = u.get("feeling", "")
                     if u.get("reexplain"):  # "I did not understand": the same question, explained again more simply
                         previous = next((t["text"] for t in reversed(turns)
                                          if t["role"] == "assistant" and t["text"] not in _CANNED), "")
@@ -228,13 +234,19 @@ class Muhawir:
                         lang = "ar"
                     if normalize(u["question"]) != normalize(question):
                         understood = u["question"]
-        res = self._ask(understood or question, style, lang, original=question, queries=queries, previous=previous, kind=kind)
+        res = self._ask(understood or question, style, lang, original=question, queries=queries, previous=previous,
+                        kind=kind, feeling=feeling)
+        if classify.mentions_suicide(question) and res.status == ANSWERED:
+            res.message = TEXT[lang_ok]["care_note"]  # the topic is answered, with a caring line above it
+        if feeling == "sad" and res.status == ABSTAINED:
+            # a grieving person is never told "not found": words of comfort, and an invitation to talk
+            res = Response(CHAT, TEXT[lang_ok]["comfort"], synthetic=self.corpus.synthetic)
         if understood and res.status not in (INVALID,):
             res.understood = understood
         return res
 
     def _ask(self, question: str, style: str, lang: str, original: str = "",
-             queries: list[str] | None = None, previous: str = "", kind: str = "") -> Response:
+             queries: list[str] | None = None, previous: str = "", kind: str = "", feeling: str = "") -> Response:
         lang = lang if lang in LANGS else "ar"
         style = style if style in STYLES else "youth"
         t = TEXT[lang]
@@ -303,7 +315,7 @@ class Muhawir:
             self.generator.last_note = self.generator.last_raw = ""
             self.generator.last_as_list = False
             self.generator.last_follow_up = ""
-        extra = {k: v for k, v in (("previous", previous), ("kind", kind)) if v}
+        extra = {k: v for k, v in (("previous", previous), ("kind", kind), ("feeling", feeling)) if v}
         draft = self.generator.generate(question, passages, style, lang, personal=personal, **extra)
         if getattr(self.generator, "last_note", "") == ALL_MODELS_FAILED:
             # the model could not be reached: say so honestly instead of "nothing found in the sources"

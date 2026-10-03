@@ -14,6 +14,13 @@ TEXT = {
         "unavailable": "الخدمة غير متاحة مؤقتًا، فلم أستطع البحث والإجابة الآن. حاول مرة أخرى بعد قليل.",
         "small_talk": "أهلًا بك. اكتب سؤالك عن الإسلام، وسأبحث لك عنه في المصادر المعتمدة.",
         "translation_label": "ترجمة لغوية، وليست جوابًا من المصادر.",
+        "crisis": "أنا آسف لأنك تمر بهذا، وما تشعر به مهم، وأنت لست وحدك. أرجوك تحدّث الآن مع شخص تثق به: "
+                  "أحد أهلك أو صديق قريب. وإن كنت تفكر في إيذاء نفسك أو تشعر أنك في خطر، فاتصل الآن برقم الطوارئ "
+                  "في بلدك أو اذهب إلى أقرب مستشفى، أو تواصل مع مختص نفسي. وجودك وحياتك يستحقان العناية.",
+        "care_note": "وإن كان هذا السؤال يخصك أو يخص من تحب، فتحدّث الآن مع شخص تثق به، "
+                     "وإن كان أحد في خطر فاتصل برقم الطوارئ في بلدك.",
+        "comfort": "أنا آسف لما تمر به، وأسأل الله أن يرحم من فقدت وأن يربط على قلبك. إن أحببت أن تحدثني عما تشعر به، "
+                   "أو أن أذكر لك ما ورد في الصبر على المصيبة، فأنا هنا معك.",
         "no_question_after_answer": "يبدو أن جوابي لم يكن واضحًا أو لم يكن ما تريده. هل أشرحه لك بطريقة أبسط؟ أو اكتب سؤالك بطريقة أخرى، وسأحاول من جديد.",
         "no_question": "أنا هنا لأحاورك وأجيبك عن أسئلتك عن الإسلام من المصادر المعتمدة. ما الذي تحب أن تعرفه؟",
         "thanks": "وإياك، بارك الله فيك. إن كان لديك سؤال آخر فاكتبه.",
@@ -41,6 +48,15 @@ TEXT = {
         "unavailable": "The service is temporarily unavailable, so I could not search and answer right now. Please try again shortly.",
         "small_talk": "Welcome. Ask your question about Islam, and I will look for it in the approved sources.",
         "translation_label": "A language translation, not an answer from the sources.",
+        "crisis": "I am sorry you are going through this. What you feel matters, and you are not alone. Please talk now "
+                  "with someone you trust: a family member or a close friend. If you are thinking of hurting yourself or "
+                  "feel in danger, call your local emergency number now or go to the nearest hospital, or reach a mental "
+                  "health professional. You and your life deserve care.",
+        "care_note": "If this question is about you or someone you love, please talk now with someone you trust, "
+                     "and if anyone is in danger, call your local emergency number.",
+        "comfort": "I am sorry for what you are going through. May God have mercy on the one you lost and give your heart "
+                   "strength. If you would like to tell me how you feel, or hear what the sources say about patience in "
+                   "hardship, I am here with you.",
         "no_question_after_answer": "It seems my answer was not clear, or not what you wanted. Shall I explain it more simply? Or ask your question another way and I will try again.",
         "no_question": "I am here to talk with you and answer your questions about Islam from the approved sources. What would you like to know?",
         "thanks": "You are welcome, may Allah bless you. If you have another question, go ahead.",
