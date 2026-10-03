@@ -17,7 +17,8 @@ from .corpus import Corpus, Passage
 from .generate import Generator
 from .messages import LANGS, STYLES, TEXT
 from .normalize import STOPWORDS, normalize
-from .retrieve import Retriever, is_sufficient
+from .retrieve import Hit, Retriever, is_sufficient
+from .sections import SectionIndex
 from .verify import Rejected, verify
 
 MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 12)  # passages offered to the model; fewer = faster on slow machines
@@ -30,6 +31,8 @@ SIMPLER = {"extended": "youth", "youth": "kids", "kids": "kids", "newcomer": "ne
 ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE, TRANSLATED = (
     "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable", "translated")
 _ARABIC = re.compile(r"[\u0600-\u06FF]")
+# a quotation of five words or more inside «» or "" or ﴿﴾: pasted from a source, not explained
+_COPIED = re.compile(r'[«"“﴿](?:[^«»"“”﴿﴾]*?\s){4,}[^«»"“”﴿﴾]*?[»"”﴾]')
 ALL_MODELS_FAILED = "every model call failed"
 DEBUG = os.environ.get("MUHAWIR_DEBUG") == "1"  # adds the reason for not answering to each response
 log = logging.getLogger("muhawir")
@@ -89,6 +92,7 @@ class Muhawir:
         self.hadith_search = hadith_search if not corpus.synthetic else None
         self.hadith_source = hadith_source
         self.asbab = AsbabIndex(corpus, self.retriever)
+        self.sections = SectionIndex(corpus)
 
     def _abstain(self, question: str, t: dict, synthetic: bool) -> Response:
         """General abstain, or a precise one when the reasons-of-revelation source has no entry."""
@@ -108,6 +112,10 @@ class Muhawir:
         """The two checks: in code (ids retrieved, quotes verbatim, schools named), then the model's
         second reading against the cited passages. None when the second reading could not run."""
         kept, rejected = verify(draft, corpus, allowed)
+        if self.generator.name != "extractive":  # the model must explain, not paste the sources
+            copied = [c for c in kept if _COPIED.search(c.text)]
+            rejected += [Rejected(c, "copied a source sentence instead of explaining it") for c in copied]
+            kept = [c for c in kept if c not in copied]
         check = getattr(self.generator, "check_support", None)
         if kept and check:
             flags = check(kept, {p.id: p for p in passages})
@@ -225,6 +233,12 @@ class Muhawir:
             passages = [h.passage for h in hits if is_sufficient([h])]
         else:
             best: dict[str, object] = {}
+            # the opening passage of the matching chapter and section of «بداية المجتهد» first:
+            # it usually holds the overview, the definition or the list of kinds
+            for pid in self.sections.match([question] + (queries or [])):
+                p = self.corpus.passage(pid)
+                if p is not None:
+                    best[pid] = Hit(p, 0.0, 1.0)
             expand = getattr(self.generator, "expand", None)
             extra = queries if queries is not None else (expand(question) if expand else [])
             queries = extra + [question]  # phrases in the sources' own wording first, the user's words last
