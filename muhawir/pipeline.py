@@ -26,8 +26,9 @@ MAX_HADITH = 3  # live hadith results offered to the model, in addition to the p
 
 MAX_QUESTION_CHARS = 500
 
-ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE = (
-    "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable")
+ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE, TRANSLATED = (
+    "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable", "translated")
+_ARABIC = re.compile(r"[\u0600-\u06FF]")
 ALL_MODELS_FAILED = "every model call failed"
 DEBUG = os.environ.get("MUHAWIR_DEBUG") == "1"  # adds the reason for not answering to each response
 log = logging.getLogger("muhawir")
@@ -147,6 +148,14 @@ class Muhawir:
                 if u is not None:
                     if not u["question"]:  # no question in the message (e.g. only an insult): no judgement, an invitation
                         return Response(CHAT, TEXT[lang_ok]["no_question"], synthetic=self.corpus.synthetic)
+                    if u.get("translate"):  # a language request, not a question: translate it, nothing more
+                        text = u["translate"]
+                        target = u.get("lang") if u.get("lang") in LANGS else ("en" if _ARABIC.search(text) else "ar")
+                        out = getattr(self.generator, "translate", lambda *_: None)(text, target)
+                        if out is None:
+                            return Response(UNAVAILABLE, TEXT[lang_ok]["unavailable"], synthetic=self.corpus.synthetic)
+                        return Response(TRANSLATED, out, synthetic=self.corpus.synthetic,
+                                        note=TEXT[lang_ok]["translation_label"])
                     queries = u["queries"]
                     if u.get("lang") in LANGS:  # e.g. "the meaning of Tawhid in English": answer in English
                         lang = u["lang"]

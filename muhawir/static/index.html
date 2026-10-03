@@ -230,7 +230,7 @@ function renderAnswer(res, style) {
   const t = UI[lang];
   $("synthetic").hidden = !res.synthetic;
   const msg = el("div", "msg");
-  if (res.message) msg.append(el("div", "", res.message));
+  if (res.message) { const m = el("div", "", res.message); m.dir = "auto"; msg.append(m); }
   // Sources are numbered; each sentence of the answer carries the numbers of the sources it rests on.
   const number = new Map((res.sources || []).map((s, i) => [s.passage_id, i + 1]));
   const cardFor = new Map();

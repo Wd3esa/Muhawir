@@ -12,7 +12,7 @@ HISTORY = [{"role": "user", "text": "ماذا تحتاج النخلة في ال�
            {"role": "assistant", "text": "تحتاج النخلة إلى ماء كثير في الصيف."}]
 
 
-def model(rewrite="ماذا تحتاج النخلة في الصيف؟", fail_rewrite=False, answer_lang="", queries=None):
+def model(rewrite="ماذا تحتاج النخلة في الصيف؟", fail_rewrite=False, answer_lang="", queries=None, translate=""):
     seen = {"standalone": 0, "answer_prompts": []}
 
     def call(system, user, schema=None):
@@ -21,8 +21,12 @@ def model(rewrite="ماذا تحتاج النخلة في الصيف؟", fail_rew
             seen["standalone"] += 1
             if fail_rewrite:
                 raise RuntimeError("down")
-            return json.dumps({"question": rewrite, "answer_lang": answer_lang, "queries": queries or []},
+            return json.dumps({"question": rewrite, "translate": translate, "answer_lang": answer_lang,
+                               "queries": queries or []},
                               ensure_ascii=False)
+        if '"translation"' in keys:
+            seen["translated"] = user
+            return json.dumps({"translation": "Monotheism (Tawhid)"})
         if "queries" in keys:
             return '{"queries": []}'
         seen["answer_prompts"].append(user)
@@ -109,7 +113,7 @@ def test_thanks_and_dua_get_a_thanks_reply():
     assert m.ask("السلام عليكم").message.startswith("أهلًا")
 
 
-def test_request_for_a_meaning_in_english_is_answered_in_english_from_the_sources():
+def test_explicit_request_for_an_english_answer_is_answered_in_english_from_the_sources():
     m, seen = model(rewrite="ماذا تحتاج النخلة في الصيف؟", answer_lang="en")
     res = m.ask("ترجم لي ماذا تحتاج النخلة في الصيف بالإنجليزية")
     assert res.status == ANSWERED and res.sources[0]["passage_id"] == "test-a:1"
@@ -127,3 +131,21 @@ def test_understanding_keeps_up_to_five_search_phrases():
         {"question": "س؟", "answer_lang": "fr", "queries": [str(i) for i in range(8)]}))])
     u = gen.understand("س؟", [])
     assert u["queries"] == ["0", "1", "2", "3", "4"] and u["lang"] == ""
+
+
+def test_translation_request_gets_a_translation_not_a_sourced_answer():
+    m, seen = model(rewrite="ما ترجمة كلمة التوحيد؟", translate="التوحيد", answer_lang="en")
+    res = m.ask("ترجم كلمة التوحيد إلى الإنجليزية")
+    assert res.status == "translated" and res.message == "Monotheism (Tawhid)"
+    assert res.note and not res.sources and seen["answer_prompts"] == [] and "<<<التوحيد>>>" in seen["translated"]
+
+
+def test_translation_target_defaults_to_the_other_language():
+    from muhawir.generate import TRANSLATE_PROMPT
+    prompts = []
+    gen = ModelGenerator([("m", lambda s, u, schema=None: (prompts.append(s), json.dumps(
+        {"question": "x", "translate": "prayer", "answer_lang": "", "queries": []}
+        if "translate" in json.dumps(schema) and "translation" not in json.dumps(schema)
+        else {"translation": "الصلاة"}))[1])])
+    res = Muhawir(CORPUS, gen).ask("how do you say prayer in Arabic")
+    assert res.message == "الصلاة" and "العربية" in prompts[-1]
