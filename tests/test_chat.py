@@ -56,13 +56,32 @@ def test_history_is_not_sent_to_the_answer_step():
     assert all("تحتاج النخلة إلى ماء كثير في الصيف." not in p for p in seen["answer_prompts"])
 
 
-def test_no_rewrite_without_history_or_when_it_fails():
-    m, seen = model()
-    m.ask("ماذا تحتاج النخلة في الصيف؟")
-    assert seen["standalone"] == 0
+def test_understanding_failure_keeps_the_original_question():
     m, seen = model(fail_rewrite=True)
     res = m.ask("ماذا تحتاج النخلة في الصيف؟", history=HISTORY)
     assert res.status == ANSWERED and res.understood == ""
+
+
+def test_same_wording_is_not_shown_as_understood():
+    m, _ = model()
+    assert m.ask("ماذا تحتاج النخلة في الصيف؟").understood == ""
+
+
+def test_message_without_a_question_gets_an_invitation_not_a_judgement():
+    m, seen = model(rewrite="")
+    res = m.ask("كلام ساخر بلا سؤال")
+    assert res.status == CHAT and res.message.startswith("أنا هنا لأحاورك") and seen["answer_prompts"] == []
+
+
+def test_question_wrapped_in_mockery_is_answered_calmly_from_the_neutral_wording():
+    m, seen = model(rewrite="ماذا تحتاج النخلة في الصيف؟")
+    res = m.ask("يا لسذاجتكم، قولوا لي ماذا تحتاج نخلتكم في الصيف؟")
+    assert res.status == ANSWERED and res.understood == "ماذا تحتاج النخلة في الصيف؟"
+    assert all("سذاجتكم" not in p for p in seen["answer_prompts"])
+
+
+def test_objection_rule_is_in_the_instructions():
+    assert "لا تصف السؤال بالفساد" in generate.SYSTEM_PROMPT and "ولا تتهم السائل" in generate.SYSTEM_PROMPT
 
 
 def test_override_in_a_follow_up_is_declined_before_any_rewrite():

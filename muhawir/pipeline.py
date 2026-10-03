@@ -121,20 +121,30 @@ class Muhawir:
         turns = [{"role": t.get("role"), "text": str(t.get("text", ""))[:MAX_TURN_CHARS]}
                  for t in (history or []) if isinstance(t, dict) and t.get("role") in ("user", "assistant")]
         turns = turns[-MAX_HISTORY_TURNS:]
-        standalone = getattr(self.generator, "standalone", None)
-        understood = ""
-        if question and turns and standalone and len(question) <= MAX_QUESTION_CHARS:
-            gate = classify.check(question)  # the user's own words are checked before any rewrite
+        if question and len(question) <= MAX_QUESTION_CHARS and classify.check(question).kind is None:
+            missing = self.asbab.missing(question)  # needs no model: same answer in every style, at once
+            if missing:
+                return Response(ABSTAINED, TEXT[lang_ok]["no_reason"][missing["what"]].format(**missing),
+                                synthetic=self.corpus.synthetic)
+        understand = getattr(self.generator, "understand", None)
+        understood, queries = "", None
+        if question and understand and len(question) <= MAX_QUESTION_CHARS:
+            gate = classify.check(question)  # the user's own words are checked before any rewording
             if gate.kind not in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
-                rewritten = standalone(question, turns)
-                if rewritten and rewritten != question:
-                    understood = rewritten
-        res = self._ask(understood or question, style, lang, original=question)
+                u = understand(question, turns)
+                if u is not None:
+                    if not u["question"]:  # no question in the message (e.g. only an insult): no judgement, an invitation
+                        return Response(CHAT, TEXT[lang_ok]["no_question"], synthetic=self.corpus.synthetic)
+                    queries = u["queries"]
+                    if normalize(u["question"]) != normalize(question):
+                        understood = u["question"]
+        res = self._ask(understood or question, style, lang, original=question, queries=queries)
         if understood and res.status not in (INVALID,):
             res.understood = understood
         return res
 
-    def _ask(self, question: str, style: str, lang: str, original: str = "") -> Response:
+    def _ask(self, question: str, style: str, lang: str, original: str = "",
+             queries: list[str] | None = None) -> Response:
         lang = lang if lang in LANGS else "ar"
         style = style if style in STYLES else "youth"
         t = TEXT[lang]
@@ -165,7 +175,8 @@ class Muhawir:
         else:
             best: dict[str, object] = {}
             expand = getattr(self.generator, "expand", None)
-            queries = [question] + (expand(question) if expand else [])
+            extra = queries if queries is not None else (expand(question) if expand else [])
+            queries = [question] + extra
             for query in queries:
                 for h in self.retriever.search(query, k=MODEL_CANDIDATES):
                     if h.coverage >= MODEL_MIN_COVERAGE and (
