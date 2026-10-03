@@ -10,7 +10,8 @@ pinned to one commit so every build gives the same passages. Licence: CC BY-NC-S
 The file is in OpenITI mARkdown: "### |" lines are headings, "# " starts a paragraph and
 "~~" continues it, "PageV01P132" marks the END of page 132 of volume 1, and "ms0127" is a
 milestone. Only these markers are removed; the wording is unchanged. Passages are whole
-paragraphs joined up to about MAX_CHUNK characters within one heading, and each passage
+paragraphs joined up to about MAX_CHUNK characters within one heading, and a new issue
+(«المسألة…») always starts a new passage, so one issue's views stay together, and each passage
 carries its book, chapter, volume and page so it can be checked in the printed edition.
 """
 from __future__ import annotations
@@ -39,6 +40,8 @@ SOURCE = {
 }
 
 _PAGE = re.compile(r"PageV(\d+)P(\d+)")
+# the start of a new issue in a section: «المسألة الرابعة…», «وأما المسألة الثانية…», «فأما المسألة…»
+_ISSUE = re.compile(r"^(?:[وف]?أما\s+)?المسألة\s")
 _MILESTONE = re.compile(r"\bms\d+\b")
 _SPACES = re.compile(r"[ \t ]+")
 
@@ -140,7 +143,8 @@ def build(text: str, min_passages: int = MIN_PASSAGES) -> tuple[dict, list[dict]
 
     for para in parse(text):
         size = sum(len(p["text"]) + 1 for p in group)
-        if group and (para["heading"] != group[0]["heading"] or size + len(para["text"]) > MAX_CHUNK):
+        new_issue = bool(_ISSUE.match(para["text"]))  # «المسألة الرابعة…» starts its own passage
+        if group and (new_issue or para["heading"] != group[0]["heading"] or size + len(para["text"]) > MAX_CHUNK):
             flush()
         group.append(para)
     flush()

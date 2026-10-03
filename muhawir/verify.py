@@ -10,9 +10,11 @@ import re
 from dataclasses import dataclass
 
 from .corpus import Corpus
-from .normalize import collapse_spaces, normalize
+from .normalize import normalize
 
-_QUOTES = re.compile(r"«([^»]+)»|\"([^\"]+)\"|“([^”]+)”|﴿([^﴾]+)﴾")
+# quotations of the sources: Arabic text inside «» or ﴿﴾ (English "..." marks a word, not a quotation)
+_QUOTES = re.compile(r"«([^»]+)»|﴿([^﴾]+)﴾")
+_ARABIC = re.compile(r"[؀-ۿ]")
 
 
 @dataclass(frozen=True)
@@ -29,7 +31,7 @@ class Rejected:
 
 
 def quotes_in(text: str) -> list[str]:
-    return [next(g for g in m.groups() if g) for m in _QUOTES.finditer(text)]
+    return [q for m in _QUOTES.finditer(text) for q in [next(g for g in m.groups() if g)] if _ARABIC.search(q)]
 
 
 def verify(claims: list[Claim], corpus: Corpus,
@@ -44,9 +46,10 @@ def verify(claims: list[Claim], corpus: Corpus,
         if unknown:
             rejected.append(Rejected(claim, f"cites passages that were not retrieved: {unknown}"))
             continue
-        cited = [collapse_spaces(corpus.passage(pid).text) for pid in claim.passage_ids]
+        # compared without diacritics or punctuation: «الكوثر» matches الْكَوْثَرَ; the card shows the exact text
+        cited = [normalize(corpus.passage(pid).text) for pid in claim.passage_ids]
         bad = [q for q in quotes_in(claim.text)
-               if not any(collapse_spaces(q) in text for text in cited)]
+               if not normalize(q) or not any(normalize(q) in text for text in cited)]
         if bad:
             rejected.append(Rejected(claim, f"quotation not found verbatim: {bad}"))
             continue

@@ -52,7 +52,9 @@ def frozen_list() -> list[dict]:
         if m:
             rows.append({"id": m.group(1), "question": m.group(2), "level": m.group(3), "expected": m.group(4),
                          "lang": "en" if re.search(r"[A-Za-z]{4}", m.group(2)) and not re.search(r"[؀-ۿ]", m.group(2)) else "ar"})
-    for i, (kind, q) in enumerate(DIALOGUE, 1):
+    # follow-ups need the line before them, and the safety lines are already in EVALUATION.md
+    dialogue = [(k, q) for k, q, _ in DIALOGUE if k not in ("follow-up", "personal", "out-of-scope", "judging", "override")]
+    for i, (kind, q) in enumerate(dialogue, 1):
         rows.append({"id": f"D{i:02d}", "question": q, "level": {"mockery-only": "-"}.get(kind, "ب"),
                      "expected": kind, "lang": "en" if kind == "english" else "ar", "kind": kind})
     return rows

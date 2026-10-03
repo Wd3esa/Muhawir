@@ -385,3 +385,23 @@ def test_religious_information_from_sources_explanation_from_the_model():
     assert "لا من ذاكرتك" in generate.SYSTEM_PROMPT and "معاني الكلمات" in generate.SYSTEM_PROMPT
     assert "الشرح اللغوي العام الذي لا يضيف معلومة شرعية" in generate.CHECK_PROMPT
     assert "حديثًا، أو قولًا لعالم" in generate.CHECK_PROMPT  # added religious content is still rejected
+
+
+def test_quotes_are_compared_without_diacritics_and_english_quotes_are_not_quotations():
+    from muhawir.verify import Claim, quotes_in, verify
+    assert quotes_in('Tawhid means "oneness"') == []
+    corpus = load_corpus(Path(__file__).resolve().parent.parent / "data" / "synthetic_corpus.json")
+    pid = corpus.passages[0].id
+    word = corpus.passages[0].text.split()[0]
+    kept, _ = verify([Claim(f"وردت كلمة «{word}» في المقطع.", (pid,))], corpus, {pid})
+    assert len(kept) == 1
+
+
+def test_per_request_state_is_not_shared_between_threads():
+    import threading
+    gen = ModelGenerator([("m", lambda s, u, schema=None: "{}")])
+    gen.last_as_list = True
+    seen = []
+    t = threading.Thread(target=lambda: seen.append(gen.last_as_list))
+    t.start(); t.join()
+    assert seen == [False] and gen.last_as_list is True

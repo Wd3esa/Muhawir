@@ -20,3 +20,4 @@ data/quran_corpus.json
 data/dumps/
 data/muhawir.db
 data/*.tmp
+muhawir_test_report.txt

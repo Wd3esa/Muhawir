@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from typing import Callable, Protocol
 
@@ -53,7 +54,8 @@ SYSTEM_PROMPT = """أنت «مُحاور»: معلّم هادئ يشرح الإ�
 2. الحديث يُنسب إلى النبي ﷺ مع حكم المحدث عليه إن ورد في المقطع، ولا يُقدَّم ما وُصف بالضعف أو الوضع على أنه ثابت.
    وكلام المفسر أو الفقيه أو الراوي يُنسب إلى قائله (مثل: «ذكر الطبري أن…»). ولا تقلب نفيًا إلى إثبات ولا إثباتًا إلى نفي.
 3. لا فتوى ولا حكم في حالة شخص بعينه، ولا ترجيح بين الأقوال، ولا خلاصة أو حكم من عندك (لا «إذن…» ولا «الخلاصة أن…»).
-   في الخلاف: ضع كل قول في views، والحقل school هو اسم صاحبه كما ورد في المقطع حرفيًا، والحقل text القول بإيجاز.
+   في الخلاف: لخّص في claims بجملة أو جملتين أن العلماء اختلفوا ومن قال بكل قول، ثم ضع كل قول في views:
+   الحقل school اسم صاحبه بالعربية كما ورد في المقطع حرفيًا (ولو كان الجواب بالإنجليزية)، والحقل text القول بإيجاز.
    لا تذكر مذهبًا أو عالمًا لم يُسمَّ في المقاطع. واذكر سبب الخلاف منسوبًا إلى مؤلف الكتاب، وترجيحه منسوبًا إليه.
    وحجة قول من الأقوال لا تقدّمها تعريفًا عامًا ولا حقيقة متفقًا عليها. وإن كان السؤال عن حكم عمل فانصح بسؤال مختص.
 4. إن لم يكن في المقاطع ما يتعلق بالسؤال نفسه فاجعل abstain صحيحًا واترك claims فارغة؛ مقطع يشترك مع السؤال في لفظ فقط لا يكفي.
@@ -136,12 +138,14 @@ UNDERSTAND_PROMPT = """أمامك رسالة من مستخدم يحاور مسا
    احذف أي سخرية أو إساءة أو ألفاظ جارحة، وأبقِ الاعتراض نفسه كما هو دون تضعيف ولا تقوية،
    وأضف فقط ما تشير إليه الرسالة من المحادثة السابقة (مثل اسم الآية أو السورة أو الموضوع).
    إن لم يكن في الرسالة سؤال ولا اعتراض يمكن الجواب عنه فاترك question فارغًا.
-2. translate: إن كان المطلوب ترجمة كلمة أو عبارة أو نص (مثل: «ترجم كلمة التوحيد»، «التوحيد بالإنجليزية؟»، «what is صلاة in English»)
+2. translate: إن كان المطلوب ترجمة كلمة أو عبارة أو نص كتبه المستخدم نفسه في رسالته (مثل: «ترجم كلمة التوحيد»، «التوحيد بالإنجليزية؟»، «what is صلاة in English»)
    فاكتب هنا النص المطلوب ترجمته بحروفه كما هو، وإلا اتركه فارغًا "".
+   أما طلب ترجمة آية أو حديث أو سورة بالاسم دون نصها (مثل: «ترجم آية الكرسي») فليس ترجمة: اترك translate فارغًا، واكتبه في question سؤالًا عن معناها.
    answer_lang: اللغة التي طلبها المستخدم صراحةً للجواب أو للترجمة: "en" أو "ar"، وإلا "".
    kind: نوع السؤال: "what" (ما هو أو ما معنى)، "why" (لماذا)، "how" (كيف أو أنواع أو شروط أو أركان أو خطوات)،
    "ruling" (ما حكم)، "objection" (اعتراض أو شبهة)، أو "" لغير ذلك.
    reexplain: true إن قال المستخدم إنه لم يفهم الجواب السابق، أو طلب شرحه بطريقة أبسط أو أوضح أو بطريقة أخرى (مثل: «ما فهمت»، «وضّح أكثر»، «بطريقة أسهل»)،
+   أو وافق («نعم»، «أجل»، «yes») على عرض المساعد أن يشرح جوابه السابق بطريقة أبسط،
    وعندها اكتب في question السؤال السابق نفسه كاملًا. وإلا false.
 3. queries: خمس عبارات بحث عربية قصيرة على الأكثر، للبحث فقط، تساعد على إيجاد الآيات وكلام المفسرين والأحاديث المتعلقة بالسؤال.
    اكتبها بألفاظ المصادر نفسها لا بألفاظ المستخدم: ألفاظ الآيات المتعلقة بالموضوع كما هي في المصحف،
@@ -378,10 +382,21 @@ class ModelGenerator:
     def __init__(self, calls: list[tuple[str, ModelCall]]) -> None:
         self.calls = calls
         self.name = "+".join(name for name, _ in calls)
-        self.last_used = ""
-        self.last_note = ""  # why the last answer step produced nothing, for the server log
-        self.last_as_list = False  # the last answer was marked as a list
-        self.last_raw = ""  # start of that reply, shown only with MUHAWIR_DEBUG=1 (never logged)
+        # per-request state lives in thread-local storage: the server answers requests in parallel
+        # threads, and one request's result must never be read by another
+        self._state = threading.local()
+
+    def _get(self, key, default):
+        return getattr(self._state, key, default)
+
+    last_used = property(lambda self: self._get("last_used", ""), lambda self, v: setattr(self._state, "last_used", v))
+    # why the last answer step produced nothing, for the server log
+    last_note = property(lambda self: self._get("last_note", ""), lambda self, v: setattr(self._state, "last_note", v))
+    # the last answer was marked as a list
+    last_as_list = property(lambda self: self._get("last_as_list", False),
+                            lambda self, v: setattr(self._state, "last_as_list", v))
+    # start of that reply, shown only with MUHAWIR_DEBUG=1 (never logged)
+    last_raw = property(lambda self: self._get("last_raw", ""), lambda self, v: setattr(self._state, "last_raw", v))
 
     def expand(self, question: str) -> list[str]:
         """Up to three Arabic search phrases for retrieval. Failure returns []."""

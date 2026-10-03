@@ -207,3 +207,15 @@ def test_contemporary_financial_rulings_are_referred_out_of_scope(engine):
         res = engine.ask(q, lang="en" if q.startswith("Is") else "ar")
         assert res.status == REFERRED and res.claims == [], q
     assert engine.ask("ماذا تحتاج النخلة في الصيف؟").status != REFERRED
+
+
+def test_category_questions_are_not_judging_a_person():
+    from muhawir import classify
+    assert classify.check("هل تارك الصلاة كافر؟").kind is None
+    assert classify.check("هل إبليس كافر؟").kind is None
+    assert classify.check("هل فلان كافر؟").kind == classify.JUDGING_PEOPLE
+
+
+def test_can_i_ask_is_not_a_personal_case():
+    from muhawir import classify
+    assert classify.check("Can I ask about the meaning of tawhid?").kind is None

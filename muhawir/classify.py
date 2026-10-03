@@ -44,12 +44,13 @@ def is_thanks(question: str) -> bool:
 _PERSONAL = [re.compile(p) for p in (
     r"\bهل يجوز لي\b", r"\bيلزمني\b", r"\bتلزمني\b", r"\bهل علي\b", r"\bفي حالتي\b",
     r"\bحلفت\b", r"\bطلقت\b", r"\bزواجي\b", r"\bزوجي\b", r"\bزوجتي\b",
-    r"\bam i allowed\b", r"\bis it permissible for me\b", r"\bcan i\b", r"\bin my case\b",
+    r"\bam i allowed\b", r"\bis it permissible for me\b", r"\bin my case\b",
     r"\bmy (husband|wife|marriage|divorce)\b",
 )]
 
 _JUDGING = [re.compile(p) for p in (
-    r"\bهل (?!ال)\S+( \S+){0,3} (كافر|مرتد|منافق|مبتدع)\b",
+    # a named person ("هل فلان كافر"); not a category ("هل تارك الصلاة كافر") or a figure the sources name
+    r"\bهل (?!ال|تارك|من\b|ما\b|كل\b|ابليس\b|فرعون\b|قارون\b|هامان\b)\S+( \S+){0,3} (كافر|مرتد|منافق|مبتدع)\b",
     r"\bis (?!it\b)\S+( \S+){0,3} (a )?(kafir|disbeliever|apostate|infidel)\b",
 )]
 

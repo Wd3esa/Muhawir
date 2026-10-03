@@ -284,7 +284,7 @@ function renderAnswer(res, style) {
   if (res.note) msg.append(el("p", "note", res.note));
   if ((res.views || []).length) {
     const panel = el("details", "views");
-    panel.open = open;
+    panel.open = true;  // the scholars' views are the answer to a ruling question: shown, not hidden
     panel.append(el("summary", "", t.views));
     for (const v of res.views) {
       const row = el("p", "view");
@@ -349,7 +349,7 @@ $("lang").addEventListener("change", (e) => { lang = e.target.value; applyLang()
 $("ask").addEventListener("submit", async (e) => {
   e.preventDefault();
   const question = $("q").value.trim();
-  if (!question) return;
+  if (!question || $("send").disabled) return;  // one question at a time: Enter must not send a second
   const askedBySpeech = spokenTurn;
   spokenTurn = false;
   stopListening();
@@ -372,7 +372,9 @@ $("ask").addEventListener("submit", async (e) => {
     const msg = renderAnswer(res, style);
     pending.replaceWith(msg);
     if (askedBySpeech && msg.listen) msg.listen.play();  // spoken question: spoken reply
-    if (res.status !== "invalid" && res.status !== "chat") {
+    // answers and Muhawir's offers (e.g. "shall I explain it more simply?") are remembered, so a follow-up
+    // or a "yes" is understood; refusals, errors and "not found" are not answers to explain again
+    if (!["invalid", "declined", "abstained", "unavailable"].includes(res.status)) {
       remember("user", res.understood || question);
       remember("assistant", [res.message, ...(res.claims || []).map((c) => c.text)].filter(Boolean).join(" "));
     }

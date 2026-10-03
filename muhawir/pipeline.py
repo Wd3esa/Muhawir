@@ -21,18 +21,24 @@ from .retrieve import Hit, Retriever, is_sufficient
 from .sections import SectionIndex
 from .verify import Rejected, verify
 
-MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 12)  # passages offered to the model; fewer = faster on slow machines
+MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 20)  # passages offered to the model; fewer = faster on slow machines
 MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
 MAX_HADITH = 3  # live hadith results offered to the model, in addition to the passages above
 
 MAX_QUESTION_CHARS = 500
+NEIGHBOUR_OF = 4      # fiqh passages whose neighbours are added
+MAX_NEIGHBOURS = 4
+MIN_PASSAGE_WORDS = 4  # fewer words than this (e.g. a bare surah title) is not a passage to answer from
 SIMPLER = {"extended": "youth", "youth": "kids", "kids": "kids", "newcomer": "newcomer"}  # for "I did not understand"
 
 ANSWERED, ABSTAINED, REFERRED, DECLINED, INVALID, CHAT, UNAVAILABLE, TRANSLATED = (
     "answered", "abstained", "referred", "declined", "invalid", "chat", "unavailable", "translated")
 _ARABIC = re.compile(r"[\u0600-\u06FF]")
 # a quotation of five words or more inside «» or "" or ﴿﴾: pasted from a source, not explained
-_COPIED = re.compile(r'[«"“﴿](?:[^«»"“”﴿﴾]*?\s){4,}[^«»"“”﴿﴾]*?[»"”﴾]')
+_COPIED = re.compile(r'«(?:[^»\s]+\s+){4,}[^»]*»|"(?:[^"\s]+\s+){4,}[^"]*"|“(?:[^”\s]+\s+){4,}[^”]*”|﴿(?:[^﴾\s]+\s+){4,}[^﴾]*﴾')
+_LATIN = re.compile(r"[A-Za-z]{2,}")
+# fixed replies (greetings, offers to explain again): never taken as "the previous answer"
+_CANNED = {v for t in TEXT.values() for v in t.values() if isinstance(v, str)}
 ALL_MODELS_FAILED = "every model call failed"
 DEBUG = os.environ.get("MUHAWIR_DEBUG") == "1"  # adds the reason for not answering to each response
 log = logging.getLogger("muhawir")
@@ -131,6 +137,19 @@ class Muhawir:
         first = draft[0] if draft else None
         return not kept or (first is not None and first not in kept) or len(rejected) >= len(kept)
 
+    def _neighbours(self, passages: list[Passage], best: int = NEIGHBOUR_OF, limit: int = MAX_NEIGHBOURS) -> list[Passage]:
+        """The passage before and after each of the first fiqh passages, when in the same section."""
+        out, have = [], {p.id for p in passages}
+        fiqh = [p for p in passages if p.kind == "fiqh" and p.id.startswith("f:") and p.id[2:].isdigit()][:best]
+        for p in fiqh:
+            n = int(p.id[2:])
+            for pid in (f"f:{n - 1}", f"f:{n + 1}"):
+                q = self.corpus.passage(pid)
+                if q is not None and pid not in have and q.keywords == p.keywords and len(out) < limit:
+                    out.append(q)
+                    have.add(pid)
+        return out
+
     def _hadith(self, queries: list[str]) -> list[Passage]:
         found: dict[str, Passage] = {}
         for query in queries[:2]:
@@ -174,13 +193,15 @@ class Muhawir:
             gate = classify.check(question)  # the user's own words are checked before any rewording
             if gate.kind not in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
                 u = understand(question, turns)
+                if u is None:  # understanding failed: do not spend another call on search phrases, answer directly
+                    queries = []
                 if u is not None:
                     if not u["question"]:  # no question in the message (e.g. only an insult): no judgement, an invitation
                         # right after an answer, it usually means the answer did not help: offer to explain again
                         after = any(t["role"] == "assistant" for t in turns)
                         reply = "no_question_after_answer" if after else "no_question"
                         return Response(CHAT, TEXT[lang_ok][reply], synthetic=self.corpus.synthetic)
-                    if u.get("translate"):  # a language request, not a question: translate it, nothing more
+                    if u.get("translate") and gate.kind is None:  # a language request: translate it, nothing more
                         text = u["translate"]
                         target = u.get("lang") if u.get("lang") in LANGS else ("en" if _ARABIC.search(text) else "ar")
                         out = getattr(self.generator, "translate", lambda *_: None)(text, target)
@@ -191,11 +212,16 @@ class Muhawir:
                     queries = u["queries"]
                     kind = u.get("kind", "")
                     if u.get("reexplain"):  # "I did not understand": the same question, explained again more simply
-                        previous = next((t["text"] for t in reversed(turns) if t["role"] == "assistant"), "")
+                        previous = next((t["text"] for t in reversed(turns)
+                                         if t["role"] == "assistant" and t["text"] not in _CANNED), "")
                         if previous:
                             style = SIMPLER.get(style, style)
                     if u.get("lang") in LANGS:  # e.g. "the meaning of Tawhid in English": answer in English
                         lang = u["lang"]
+                    elif _LATIN.search(question) and not _ARABIC.search(question):
+                        lang = "en"  # an English question gets an English answer, whatever the page language
+                    elif _ARABIC.search(question) and not _LATIN.search(question):
+                        lang = "ar"
                     if normalize(u["question"]) != normalize(question):
                         understood = u["question"]
         res = self._ask(understood or question, style, lang, original=question, queries=queries, previous=previous, kind=kind)
@@ -238,20 +264,25 @@ class Muhawir:
             best: dict[str, object] = {}
             # the opening passage of the matching chapter and section of «بداية المجتهد» first:
             # it usually holds the overview, the definition or the list of kinds
-            for pid in self.sections.match([question] + (queries or [])):
+            for pid in self.sections.match([original or question] + (queries or [])):
                 p = self.corpus.passage(pid)
                 if p is not None:
                     best[pid] = Hit(p, 0.0, 1.0)
             expand = getattr(self.generator, "expand", None)
             extra = queries if queries is not None else (expand(question) if expand else [])
             queries = extra + [question]  # phrases in the sources' own wording first, the user's words last
-            lists = [[h for h in self.retriever.search(query, k=MODEL_CANDIDATES) if h.coverage >= MODEL_MIN_COVERAGE]
+            lists = [[h for h in self.retriever.search(query, k=MODEL_CANDIDATES) if h.coverage >= MODEL_MIN_COVERAGE
+                      and (h.passage.kind == "quran" or len(h.passage.text.split()) >= MIN_PASSAGE_WORDS)]
                      for query in queries]
             # take turns between the phrases, so one long phrase with high scores cannot fill every place
             for rank in range(MODEL_CANDIDATES):
                 for hits in lists:
                     if rank < len(hits) and len(best) < MODEL_CANDIDATES:
                         best.setdefault(hits[rank].passage.id, hits[rank])
+            # one issue in «بداية المجتهد» often runs over two or three passages in a row (the views in one,
+            # the evidence in the next): add the neighbours of the best fiqh matches from the same section
+            for p in self._neighbours([h.passage for h in best.values()]):
+                best.setdefault(p.id, Hit(p, 0.0, 1.0))
             passages = [h.passage for h in best.values()]
             if self.hadith_search:
                 live = self._hadith(queries)
