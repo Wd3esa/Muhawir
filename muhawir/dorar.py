@@ -30,7 +30,7 @@ SOURCE = Source(
 KIND = "hadith"
 TIMEOUT = 8.0
 # identifies Muhawir honestly; it does not pretend to be a browser
-HEADERS = {"User-Agent": "Muhawir/0.1 (educational Islamic Q&A; https://github.com/Wd3esa/muhawir)",
+HEADERS = {"User-Agent": "Muhawir/0.1 (educational Islamic dialogue assistant; https://github.com/Wd3esa/muhawir)",
            "Accept": "application/json"}
 REFUSED_PAUSE = 3600  # after dorar refuses (HTTP 403), stop asking for an hour instead of on every question
 _refused_until = 0.0
