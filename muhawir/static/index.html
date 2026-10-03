@@ -111,7 +111,7 @@ const UI = {
         views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
-        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "الحكم", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
+        topics: "موضوعات الآية بحسب المصدر", location: "الموضع", grade: "حكم المحدث", hadith: "حديث", open: "فتح المصدر", error: "تعذّر الاتصال. حاول مرة أخرى.",
         status: { answered: "إجابة من المصادر", abstained: "امتناع", referred: "إحالة إلى مختص", declined: "خارج النطاق", invalid: "", chat: "" } },
   en: { lang: "Language", tagline: "Helps you answer your questions about Islam, fiqh and creed from approved, trusted sources, and refers you to a specialist when you ask for a fatwa.",
         qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
@@ -121,7 +121,7 @@ const UI = {
         views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
-        topics: "Topics listed by the source", location: "Location", grade: "Grading", open: "Open source", error: "Could not connect. Please try again.",
+        topics: "Topics listed by the source", location: "Location", grade: "Grading", hadith: "Hadith", open: "Open source", error: "Could not connect. Please try again.",
         status: { answered: "Answer from the sources", abstained: "Abstained", referred: "Referred to a specialist", declined: "Out of scope", invalid: "", chat: "" } }
 };
 const $ = (id) => document.getElementById(id);
@@ -208,7 +208,9 @@ function renderAnswer(res, style) {
   for (const s of res.sources || []) {
     const card = el("details", "card");
     card.open = open || shown.has(s.passage_id);
-    card.append(el("summary", "", `${s.source_name} · ${s.location}`));
+    // a hadith shows its grading in the folded line, so it is never seen without it
+    card.append(el("summary", "", s.kind === "hadith"
+      ? `${t.hadith} (${t.grade}: ${s.grade}) · ${s.source_name}` : `${s.source_name} · ${s.location}`));
     card.append(el("div", "about", s.source_about));
     card.append(el("blockquote", "", s.quote));
     if (s.topics) card.append(el("div", "meta", `${t.topics}: ${s.topics}`));

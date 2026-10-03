@@ -12,14 +12,16 @@ from dataclasses import asdict, dataclass, field
 
 from . import classify
 from .asbab import AsbabIndex
-from .corpus import Corpus
+from .corpus import Corpus, Passage
 from .generate import Generator
 from .messages import LANGS, STYLES, TEXT
+from .normalize import STOPWORDS, normalize
 from .retrieve import Retriever, is_sufficient
 from .verify import verify
 
 MODEL_CANDIDATES = int(os.environ.get("MUHAWIR_PASSAGES") or 8)  # passages offered to the model; fewer = faster on slow machines
 MODEL_MIN_COVERAGE = 0.34  # loose filter: the model, not keyword overlap, decides
+MAX_HADITH = 3  # live hadith results offered to the model, in addition to the passages above
 
 MAX_QUESTION_CHARS = 500
 
@@ -51,11 +53,33 @@ def _strip_ids(text: str, ids: set[str]) -> str:
     return re.sub(r"\s+([.،,؛])", r"\1", text).strip()
 
 
+class _WithLive:
+    """The corpus plus passages fetched live for one question (e.g. dorar hadith results)."""
+
+    def __init__(self, corpus, live: list[Passage], sources: dict) -> None:
+        self.base, self.live, self.extra_sources = corpus, {p.id: p for p in live}, sources
+
+    def passage(self, pid: str):
+        return self.live.get(pid) or self.base.passage(pid)
+
+    def source_of(self, p):
+        return self.extra_sources.get(p.source_id) or self.base.source_of(p)
+
+
+def _search_words(text: str) -> str:
+    """The question without filler words, kept in their written form for an outside search."""
+    return " ".join(w for w in text.split() if normalize(w) and normalize(w) not in STOPWORDS)
+
+
 class Muhawir:
-    def __init__(self, corpus: Corpus, generator: Generator, retriever=None) -> None:
+    def __init__(self, corpus: Corpus, generator: Generator, retriever=None, hadith_search=None,
+                 hadith_source=None) -> None:
         self.corpus = corpus
         self.retriever = retriever or Retriever(corpus)
         self.generator = generator
+        # live hadith search (dorar.net); never used with synthetic test data or in extractive mode
+        self.hadith_search = hadith_search if not corpus.synthetic else None
+        self.hadith_source = hadith_source
         self.asbab = AsbabIndex(corpus, self.retriever)
 
     def _abstain(self, question: str, t: dict, synthetic: bool) -> Response:
@@ -65,11 +89,21 @@ class Muhawir:
             return Response(ABSTAINED, t["no_reason"][missing["what"]].format(**missing), synthetic=synthetic)
         return Response(ABSTAINED, t["abstain"], synthetic=synthetic)
 
-    def _cards(self, passage_ids: list[str]) -> list[dict]:
+    def _hadith(self, queries: list[str]) -> list[Passage]:
+        found: dict[str, Passage] = {}
+        for query in queries[:2]:
+            for p in self.hadith_search(_search_words(query)):
+                found.setdefault(p.id, p)
+            if len(found) >= MAX_HADITH:
+                break
+        return list(found.values())[:MAX_HADITH]
+
+    def _cards(self, passage_ids: list[str], corpus=None) -> list[dict]:
+        corpus = corpus or self.corpus
         cards = []
         for pid in dict.fromkeys(passage_ids):
-            p = self.corpus.passage(pid)
-            s = self.corpus.source_of(p)
+            p = corpus.passage(pid)
+            s = corpus.source_of(p)
             cards.append({"passage_id": p.id, "quote": p.text, "location": p.location,
                           "kind": p.kind, "grade": p.grade, "topics": p.keywords, "source_name": s.name,
                           "source_about": s.about, "source_url": s.url})
@@ -131,22 +165,28 @@ class Muhawir:
         else:
             best: dict[str, object] = {}
             expand = getattr(self.generator, "expand", None)
-            for query in [question] + (expand(question) if expand else []):
+            queries = [question] + (expand(question) if expand else [])
+            for query in queries:
                 for h in self.retriever.search(query, k=MODEL_CANDIDATES):
                     if h.coverage >= MODEL_MIN_COVERAGE and (
                             h.passage.id not in best or h.score > best[h.passage.id].score):
                         best[h.passage.id] = h
             ranked = sorted(best.values(), key=lambda h: h.score, reverse=True)
             passages = [h.passage for h in ranked[:MODEL_CANDIDATES]]
+            if self.hadith_search:
+                live = self._hadith(queries)
+                passages += live
         if not passages:
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
             return self._abstain(question, t, synthetic)
 
         allowed = {p.id for p in passages}
+        live = [p for p in passages if self.corpus.passage(p.id) is None]
+        corpus = _WithLive(self.corpus, live, {self.hadith_source.id: self.hadith_source}) if live else self.corpus
         kept, _rejected = verify(
             self.generator.generate(question, passages, style, lang, personal=personal),
-            self.corpus, allowed)
+            corpus, allowed)
         if not kept:
             if personal:
                 return Response(REFERRED, t["personal_case"], synthetic=synthetic)
@@ -160,7 +200,7 @@ class Muhawir:
         claims = [{"text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)} for c in answer]
         views = [{"school": c.school, "text": _strip_ids(c.text, allowed), "passage_ids": list(c.passage_ids)}
                  for c in kept if c.school]
-        cards = self._cards([pid for c in answer + [v for v in kept if v.school] for pid in c.passage_ids])
+        cards = self._cards([pid for c in answer + [v for v in kept if v.school] for pid in c.passage_ids], corpus)
         note = t["translation_pending"] if lang == "en" and self.generator.name == "extractive" else ""
         if gate.kind == classify.PERSONAL_CASE:
             message = t["personal_case"] + "\n" + t["personal_case_info"]
