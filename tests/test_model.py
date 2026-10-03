@@ -286,3 +286,10 @@ def test_reason_for_not_answering_is_logged_without_the_question(caplog, monkeyp
     res = engine({"abstain": False, "claims": [{"text": "قال: «نص مختلق»", "passage_ids": ["test-a:1"]}]}).ask(QUESTION)
     assert res.status == ABSTAINED and "quotation not found" in res.why
     assert "not answered" in caplog.text and QUESTION not in caplog.text
+
+
+def test_json_with_text_around_it_is_read():
+    raw = 'Here is the answer:\n{"abstain": false, "claims": [{"text": "ت", "passage_ids": ["a"]}]}\nI hope this helps.'
+    assert parse_draft(raw)[0].text == "ت"
+    assert parse_draft('```json\n{"abstain": false, "claims": [{"text": "ت", "passage_ids": ["a"]}]}') [0].text == "ت"
+    assert parse_draft("لا أعرف") == []

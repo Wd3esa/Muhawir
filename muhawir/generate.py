@@ -41,7 +41,8 @@ SYSTEM_PROMPT = """أنت «مُحاور»، مساعد يجيب عن أسئلة
 5. ابدأ بالجواب المباشر عن السؤال في الجملة الأولى، بلا تمهيد. لا تكتب جملة عامة مثل «في المسألة عدة أقوال» دون أن تذكر هذه الأقوال نفسها باختصار.
    اكتب كأنك تحاور السائل: خاطبه مباشرة بلغة سهلة واضحة، وبجمل متصلة تُقرأ متتابعة كحديث طبيعي لا كقائمة. لا تكتب «بحسب المقطع» ولا أرقام المقاطع في النص، فالنظام يضع الإحالة إلى المصدر بجانب كل جملة.
    وإن كان السؤال اعتراضًا أو شبهة فأجب بهدوء واحترام كما يحاور المرء صديقًا: لا تصف السؤال بالفساد أو السخف، ولا تتهم السائل ولا تحكم على نيته أو إيمانه، وابدأ من موضع الإشكال في السؤال نفسه، ورتّب الجواب خطوة خطوة مما في المقاطع. وإن لم تكفِ المقاطع للجواب عن الاعتراض فامتنع.
-6. إن لم تكن في المقاطع إجابة واضحة عن السؤال نفسه، فاجعل abstain صحيحًا واترك claims فارغة. مقطع يشترك مع السؤال في لفظ فقط لا يكفي.
+6. إن لم يكن في المقاطع ما يتعلق بالسؤال نفسه، فاجعل abstain صحيحًا واترك claims فارغة. مقطع يشترك مع السؤال في لفظ فقط لا يكفي.
+   وإن أجابت المقاطع عن جزء من السؤال أو عن معناه العام فأجب بما فيها فقط، ولا تمتنع لأن الجواب غير كامل، ولا تكمله من عندك.
    وإن كان السؤال عن سبب نزول، فلا يكفي إلا مقطع يذكر سبب نزول تلك الآية أو السورة نفسها (مثل: «نزلت في…» أو «فنزلت»). ما يذكر مكان النزول أو زمانه أو عدد مرات نزوله ليس سبب نزول.
 7. لا تُصدر فتوى ولا حكمًا في حالة شخص بعينه. إن ذكرت المقاطع خلافًا بين العلماء فاذكر في claims الأقوال نفسها باختصار كما وردت، ولا ترجّح بينها. وإن كان السؤال عن حكم عمل فانصح بسؤال مختص.
    وضع كل قول منسوب في views: الحقل school هو اسم صاحب القول أو المذهب كما ورد في المقطع حرفيًا (مثل: الشافعي، أو: أهل المدينة)، والحقل text هو القول بإيجاز. لا تذكر مذهبًا أو عالمًا لم يُسمَّ في المقاطع، ولا تكمل الأقوال من معرفتك. إن لم تذكر المقاطع أقوالًا منسوبة فاترك views فارغة.
@@ -154,13 +155,21 @@ _THINK = re.compile(r"<think>.*?</think>", re.S)
 
 
 def load_json(raw: str):
-    """Parse a model reply as JSON, ignoring a <think> block or ``` fences some local models add."""
+    """Parse a model reply as JSON. Open models sometimes add a <think> block, ``` fences,
+    or a sentence before or after the JSON; the first complete JSON object is used."""
     text = _THINK.sub("", raw or "").strip()
     if text.startswith("```"):
         text = text.strip("`").strip()
         if text.lower().startswith("json"):
             text = text[4:]
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except ValueError:
+        start = text.find("{")
+        if start < 0:
+            raise
+        obj, _end = json.JSONDecoder().raw_decode(text[start:])  # ValueError again if no complete object
+        return obj
 
 
 _ID_WRAP = " \t\n[](){}<>«»\"'"
@@ -235,6 +244,7 @@ class ModelGenerator:
         self.name = "+".join(name for name, _ in calls)
         self.last_used = ""
         self.last_note = ""  # why the last answer step produced nothing, for the server log
+        self.last_raw = ""  # start of that reply, shown only with MUHAWIR_DEBUG=1 (never logged)
 
     def expand(self, question: str) -> list[str]:
         """Up to three Arabic search phrases for retrieval. Failure returns []."""
@@ -287,6 +297,7 @@ class ModelGenerator:
                 except (TypeError, ValueError):
                     said = "replied with text that is not JSON"
                 self.last_note = f"model {name} {said}"
+                self.last_raw = raw[:300]
             return claims
         self.last_used = ""
         self.last_note = "every model call failed"
@@ -340,7 +351,7 @@ def openai_compatible_call(base_url: str, model: str, api_key: str = "",
         r = httpx.post(
             base_url.rstrip("/") + "/chat/completions",
             headers=headers,
-            json={"model": model, "temperature": 0,
+            json={"model": model, "temperature": 0, "max_tokens": 2048,  # room for the whole JSON reply
                   "response_format": {"type": "json_object"},
                   "messages": [{"role": "system", "content": system},
                                {"role": "user", "content": user}]},

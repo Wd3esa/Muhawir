@@ -94,10 +94,10 @@ class Muhawir:
         return Response(ABSTAINED, t["abstain"], synthetic=synthetic)
 
     @staticmethod
-    def _why(res: Response, reason: str) -> Response:
-        log.warning("not answered: %s", reason[:500])
+    def _why(res: Response, reason: str, reply_start: str = "") -> Response:
+        log.warning("not answered: %s", reason[:500])  # the reply itself is never logged
         if DEBUG:
-            res.why = reason[:500]
+            res.why = reason[:500] + (f" | reply began: {reply_start}" if reply_start else "")
         return res
 
     def _hadith(self, queries: list[str]) -> list[Passage]:
@@ -207,15 +207,16 @@ class Muhawir:
         live = [p for p in passages if self.corpus.passage(p.id) is None]
         corpus = _WithLive(self.corpus, live, {self.hadith_source.id: self.hadith_source}) if live else self.corpus
         if hasattr(self.generator, "last_note"):
-            self.generator.last_note = ""
+            self.generator.last_note = self.generator.last_raw = ""
         draft = self.generator.generate(question, passages, style, lang, personal=personal)
         kept, rejected = verify(draft, corpus, allowed)
         offered = f"{len(passages)} passages offered"
         if not kept:
             reason = "; ".join(r.reason for r in rejected) or getattr(self.generator, "last_note", "") or "no claims"
+            raw = getattr(self.generator, "last_raw", "")
             if personal:
                 return self._why(Response(REFERRED, t["personal_case"], synthetic=synthetic), f"{offered}; {reason}")
-            return self._why(self._abstain(question, t, synthetic), f"{offered}; {reason}")
+            return self._why(self._abstain(question, t, synthetic), f"{offered}; {reason}", raw)
         if rejected:
             log.warning("some claims dropped: %s", "; ".join(r.reason for r in rejected)[:500])
 
