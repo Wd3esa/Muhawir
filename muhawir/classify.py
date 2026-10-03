@@ -18,6 +18,7 @@ from .normalize import normalize
 PERSONAL_CASE = "personal_case"      # level D: general info only + referral
 JUDGING_PEOPLE = "judging_people"    # out of scope: decline politely
 OVERRIDE = "override_attempt"        # keep the rules, explain, refer
+OUT_OF_SCOPE = "out_of_scope"        # contemporary financial rulings: refer to fatwa bodies (scope of version 1)
 SMALL_TALK = "small_talk"            # greeting or thanks only: short fixed reply, no search
 
 _GREETING = (r"السلام عليكم(?: ورحمه الله(?: وبركاته)?)?|عليكم السلام(?: ورحمه الله(?: وبركاته)?)?|"
@@ -65,10 +66,19 @@ class Gate:
     rule: str = ""     # the pattern that matched, for logs and tests
 
 
+# Rulings on contemporary financial products need ijtihad by fatwa bodies and fiqh academies;
+# they are outside version 1 (EVALUATION.md, Q25 and Q26). Only questions asking for a ruling are stopped.
+_OUT_OF_SCOPE = [re.compile(p) for p in (
+    r"\b(حكم|حلال|حرام|يجوز|جائز)\b.*\b(البنوك?|بنكي[هة]?|المصارف|فوائد|عملات رقمي[هة]|العملات الرقمي[هة]|الرقمي[هة]|بيتكوين|البيتكوين|كريبتو|التداول|تداول|الفوركس|فوركس|الاسهم|اسهم|التامين|تامين)\b",
+    r"\b(البنوك?|بنكي[هة]?|المصارف|فوائد|عملات رقمي[هة]|العملات الرقمي[هة]|بيتكوين|البيتكوين|كريبتو|التداول|تداول|الفوركس|فوركس|الاسهم|التامين)\b.*\b(حلال|حرام|يجوز|جائز)\b",
+    r"\b(is|are)\b.*\b(bank interest|crypto|bitcoin|forex|stock trading|insurance)\b.*\b(halal|haram|permissible|allowed)\b",
+)]
+
+
 def check(question: str) -> Gate:
     text = normalize(question)
     for kind, patterns in ((OVERRIDE, _OVERRIDE), (JUDGING_PEOPLE, _JUDGING),
-                           (PERSONAL_CASE, _PERSONAL)):
+                           (PERSONAL_CASE, _PERSONAL), (OUT_OF_SCOPE, _OUT_OF_SCOPE)):
         for pattern in patterns:
             if pattern.search(text):
                 return Gate(kind, pattern.pattern)

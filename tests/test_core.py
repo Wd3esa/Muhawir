@@ -99,8 +99,13 @@ def test_rules_stop_level_d_and_only_level_d(qid, question, level):
     gate = classify.check(question)
     if level == "د":
         assert gate.kind is not None, f"{qid} should be stopped"
+    elif qid in OUT_OF_SCOPE_IDS:  # the list marks these as outside version 1: refer, do not rule
+        assert gate.kind == classify.OUT_OF_SCOPE, f"{qid} should be referred as out of scope"
     else:
         assert gate.kind is None, f"{qid} stopped by {gate.rule}"
+
+
+OUT_OF_SCOPE_IDS = {"Q25", "Q26"}
 
 
 def test_rule_kinds():
@@ -194,3 +199,11 @@ def test_keywords_are_searched_but_not_quoted():
     res = Muhawir(corpus, ExtractiveGenerator()).ask("الزراعة")
     assert res.status == ANSWERED and res.sources[0]["quote"] == "نص لا يذكر الكلمة"
     assert res.sources[0]["topics"] == "الزراعة"
+
+
+def test_contemporary_financial_rulings_are_referred_out_of_scope(engine):
+    from muhawir.pipeline import REFERRED
+    for q in ("هل الربا في البنوك الحديثة حلال؟", "ما حكم التداول بالعملات الرقمية؟", "Is bitcoin trading halal?"):
+        res = engine.ask(q, lang="en" if q.startswith("Is") else "ar")
+        assert res.status == REFERRED and res.claims == [], q
+    assert engine.ask("ماذا تحتاج النخلة في الصيف؟").status != REFERRED

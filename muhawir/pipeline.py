@@ -174,6 +174,8 @@ class Muhawir:
                 gate = own
         if gate.kind in (classify.JUDGING_PEOPLE, classify.OVERRIDE):
             return Response(DECLINED, t[gate.kind], synthetic=synthetic)
+        if gate.kind == classify.OUT_OF_SCOPE:
+            return Response(REFERRED, t["out_of_scope"], synthetic=synthetic)
 
         personal = gate.kind == classify.PERSONAL_CASE
         if not personal:  # decided before the model, so every style gets the same answer

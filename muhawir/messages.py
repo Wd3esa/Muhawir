@@ -9,6 +9,8 @@ TEXT = {
                    "يمكنك سؤال مختص في العلم الشرعي.",
         "no_reason": {"ayah": "لم يُذكر لهذه الآية ({where}) سبب نزول في مصدر أسباب النزول المعتمد لدي: «{source}».",
                       "surah": "لم يُذكر ل{where} سبب نزول في مصدر أسباب النزول المعتمد لدي: «{source}»."},
+        "out_of_scope": "حكم المعاملات المالية المعاصرة (مثل البنوك والعملات الرقمية والتداول والتأمين) يحتاج اجتهادًا من هيئات الفتوى والمجامع الفقهية، "
+                        "وهو خارج ما أقدّمه. أنصحك بالرجوع إلى هيئة فتوى معتمدة في بلدك أو إلى قرارات المجامع الفقهية.",
         "unavailable": "الخدمة غير متاحة مؤقتًا، فلم أستطع البحث والإجابة الآن. حاول مرة أخرى بعد قليل.",
         "small_talk": "أهلًا بك. اكتب سؤالك عن الإسلام، وسأبحث لك عنه في المصادر المعتمدة.",
         "no_question": "أنا هنا لأحاورك وأجيبك عن أسئلتك عن الإسلام من المصادر المعتمدة. ما الذي تحب أن تعرفه؟",
@@ -31,6 +33,9 @@ TEXT = {
                    "You may ask a qualified scholar.",
         "no_reason": {"ayah": "The reasons-of-revelation source I rely on, «{source}», records no reason of revelation for this ayah ({where}).",
                       "surah": "The reasons-of-revelation source I rely on, «{source}», records no reason of revelation for {where}."},
+        "out_of_scope": "Rulings on contemporary financial matters (such as banking, cryptocurrencies, trading and insurance) need "
+                        "ijtihad by fatwa bodies and fiqh academies, and are outside what I offer. Please consult a recognised "
+                        "fatwa body in your country or the resolutions of the fiqh academies.",
         "unavailable": "The service is temporarily unavailable, so I could not search and answer right now. Please try again shortly.",
         "small_talk": "Welcome. Ask your question about Islam, and I will look for it in the approved sources.",
         "no_question": "I am here to talk with you and answer your questions about Islam from the approved sources. What would you like to know?",
