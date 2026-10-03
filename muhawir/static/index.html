@@ -38,7 +38,6 @@
          white-space: pre-line; }
   .msg.pending { color: var(--muted); }
   .status { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-  .understood { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
   .answer { margin: 0; }
   .cite { font-size: 12px; vertical-align: super; line-height: 0; margin-inline-start: 2px; }
   .cite a { text-decoration: none; }
@@ -54,6 +53,7 @@
   .views { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
   .view { margin: 6px 0; }
   .tools { margin-top: 8px; }
+  .no-voice { font-size: 13px; color: var(--muted); margin-top: 4px; }
   .link-btn { font: inherit; font-size: 14px; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; }
   form { position: sticky; bottom: 0; background: var(--panel); border: 1px solid var(--line);
          border-radius: 14px; padding: 12px; }
@@ -111,7 +111,8 @@ const UI = {
         qlabel: "سؤالك", placeholder: "اكتب سؤالك هنا…", empty: "اكتب سؤالك أو تحدّث، وسأجيبك من المصادر.",
         style: "أسلوب الشرح", kids: "للصغار", youth: "للشباب", extended: "موسّع", newcomer: "جديد على الإسلام", send: "اسأل",
         mic: "🎤 تحدّث", micStop: "⏹ إيقاف", voiceNote: "عند استعمال الميكروفون قد يرسل متصفحك صوتك إلى خدمة خارجية لتحويله إلى نص.",
-        listen: "🔊 استمع", stop: "⏹ إيقاف", pending: "أبحث في المصادر…", understood: "فهمت سؤالك هكذا: ",
+        listen: "🔊 استمع", stop: "⏹ إيقاف", pending: "أبحث في المصادر…",
+        noVoice: "لا يوجد صوت عربي في هذا المتصفح. جرّب متصفح Edge، أو أضف اللغة العربية من إعدادات الكلام في جهازك.",
         views: "أقوال العلماء كما وردت في المصادر",
         disclaimer: "مُحاور أداة تعريفية مسندة إلى مصادر معتمدة، وليس مصدرًا للفتوى الشخصية.",
         synthetic: "تنبيه: النسخة الحالية تعمل على بيانات تجريبية مصطنعة لاختبار البرنامج، وليست نصوصًا دينية.",
@@ -121,7 +122,8 @@ const UI = {
         qlabel: "Your question", placeholder: "Type your question here…", empty: "Type or speak your question, and I will answer from the sources.",
         style: "Explanation style", kids: "For children", youth: "For young people", extended: "Detailed", newcomer: "New to Islam", send: "Ask",
         mic: "🎤 Speak", micStop: "⏹ Stop", voiceNote: "When you use the microphone, your browser may send your voice to an outside service to turn it into text.",
-        listen: "🔊 Listen", stop: "⏹ Stop", pending: "Searching the sources…", understood: "I understood your question as: ",
+        listen: "🔊 Listen", stop: "⏹ Stop", pending: "Searching the sources…",
+        noVoice: "This browser has no English voice. Try Edge, or add a voice in your device's speech settings.",
         views: "Scholars' views as stated in the sources",
         disclaimer: "Muhawir is an introductory tool grounded in approved sources. It is not a source of personal fatwas.",
         synthetic: "Notice: this version runs on synthetic test data, not religious texts.",
@@ -133,6 +135,7 @@ let lang = "ar";
 const chatTurns = [];  // this conversation only: kept in this page, never stored on the server
 const MAX_HISTORY = 6;
 let recognizer = null, recognizing = false;
+let spokenTurn = false;  // the current question was dictated: submit it when speech ends and read the reply aloud
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -161,25 +164,60 @@ function spokenText(res) {
   return parts.join("\n");
 }
 
+// Browsers load their voices late (Chrome on first use), so wait for them briefly.
+function voicesReady() {
+  const now = speechSynthesis.getVoices();
+  if (now.length) return Promise.resolve(now);
+  return new Promise((resolve) => {
+    const done = () => resolve(speechSynthesis.getVoices());
+    speechSynthesis.addEventListener("voiceschanged", done, { once: true });
+    setTimeout(done, 1500);
+  });
+}
+
+function pickVoice(voices, speakLang) {
+  const tag = speakLang === "ar" ? "ar-sa" : "en-us";
+  const ofLang = voices.filter((v) => v.lang.toLowerCase().replace("_", "-").startsWith(speakLang));
+  return ofLang.find((v) => v.lang.toLowerCase().replace("_", "-") === tag) || ofLang[0] || null;
+}
+
+// Short pieces, one after another: Chrome stops long utterances after about 15 seconds.
+function pieces(text) {
+  return text.split(/(?<=[.!?؟。\n])\s*/).map((x) => x.trim()).filter(Boolean);
+}
+
 function listenButton(res) {
   const text = spokenText(res);
   if (!("speechSynthesis" in window) || !text) return null;
   const speakLang = lang;
+  const box = el("div", "tools");
   const btn = el("button", "link-btn", UI[speakLang].listen);
   btn.type = "button";
-  btn.addEventListener("click", () => {
-    if (btn.dataset.playing) { speechSynthesis.cancel(); return; }
+  const reset = () => { delete btn.dataset.playing; btn.textContent = UI[speakLang].listen; };
+  box.play = async () => {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = speakLang === "ar" ? "ar-SA" : "en-US";
-    const voice = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(speakLang));
-    if (voice) u.voice = voice;
-    const reset = () => { delete btn.dataset.playing; btn.textContent = UI[speakLang].listen; };
-    u.onend = reset; u.onerror = reset;
+    const voice = pickVoice(await voicesReady(), speakLang);
+    if (!voice) {  // no voice for this language: say so instead of staying silent
+      if (!box.querySelector(".no-voice")) box.append(el("div", "no-voice", UI[speakLang].noVoice));
+      return;
+    }
     btn.dataset.playing = "1"; btn.textContent = UI[speakLang].stop;
-    speechSynthesis.speak(u);
+    const parts = pieces(text);
+    parts.forEach((part, i) => {
+      const u = new SpeechSynthesisUtterance(part);
+      u.lang = voice.lang;
+      try { u.voice = voice; } catch { /* the language tag alone still picks it */ }
+      if (i === parts.length - 1) u.onend = reset;
+      u.onerror = reset;
+      speechSynthesis.speak(u);
+    });
+  };
+  btn.addEventListener("click", () => {
+    if (btn.dataset.playing) { speechSynthesis.cancel(); reset(); return; }
+    box.play();
   });
-  return btn;
+  box.append(btn);
+  return box;
 }
 
 function renderAnswer(res, style) {
@@ -187,7 +225,6 @@ function renderAnswer(res, style) {
   const t = UI[lang];
   $("synthetic").hidden = !res.synthetic;
   const msg = el("div", "msg");
-  if (res.understood) msg.append(el("div", "understood", t.understood + res.understood));
   if (res.message) msg.append(el("div", "", res.message));
   // Sources are numbered; each sentence of the answer carries the numbers of the sources it rests on.
   const number = new Map((res.sources || []).map((s, i) => [s.passage_id, i + 1]));
@@ -259,7 +296,7 @@ function renderAnswer(res, style) {
     msg.append(card);
   }
   const listen = listenButton(res);
-  if (listen) { const tools = el("div", "tools"); tools.append(listen); msg.append(tools); }
+  if (listen) { msg.append(listen); msg.listen = listen; }
   return msg;
 }
 
@@ -285,6 +322,8 @@ $("ask").addEventListener("submit", async (e) => {
   e.preventDefault();
   const question = $("q").value.trim();
   if (!question) return;
+  const askedBySpeech = spokenTurn;
+  spokenTurn = false;
   stopListening();
   const style = $("style").value;
   const send = $("send");
@@ -300,7 +339,9 @@ $("ask").addEventListener("submit", async (e) => {
       body: JSON.stringify({ question, style, lang, history: chatTurns }) });
     if (!r.ok) throw new Error(r.status);
     const res = await r.json();
-    pending.replaceWith(renderAnswer(res, style));
+    const msg = renderAnswer(res, style);
+    pending.replaceWith(msg);
+    if (askedBySpeech && msg.listen) msg.listen.play();  // spoken question: spoken reply
     if (res.status !== "invalid" && res.status !== "chat") {
       remember("user", res.understood || question);
       remember("assistant", [res.message, ...(res.claims || []).map((c) => c.text)].filter(Boolean).join(" "));
@@ -330,17 +371,23 @@ if (Recognition) {
     recognizer.lang = lang === "ar" ? "ar-SA" : "en-US";
     recognizer.interimResults = true;
     recognizer.continuous = false;
+    window.speechSynthesis?.cancel();  // stop reading the last reply while the user speaks
     const before = $("q").value.trim();
+    let heard = false;
     recognizer.onresult = (ev) => {
       const said = Array.from(ev.results).map((r) => r[0].transcript).join(" ");
       $("q").value = (before ? before + " " : "") + said;
+      heard = Boolean(said.trim());
     };
-    const done = () => {
+    let failed = false;
+    recognizer.onerror = () => { failed = true; };
+    recognizer.onend = () => {
       recognizing = false;
       $("mic").setAttribute("aria-pressed", "false");
       $("mic").textContent = UI[lang].mic;
+      // the user talked: send what was heard and answer by voice, like a conversation
+      if (heard && !failed && $("q").value.trim()) { spokenTurn = true; $("ask").requestSubmit(); }
     };
-    recognizer.onend = done; recognizer.onerror = done;
     recognizing = true;
     $("mic").setAttribute("aria-pressed", "true");
     $("mic").textContent = UI[lang].micStop;
