@@ -61,6 +61,10 @@ def topic_keywords(topics_dump: dict | None) -> dict[str, str]:
 
 _BREAK = re.compile(r"<br\s*/?>|</p>|</div>|</h3>|</tr>", re.I)
 _TAG = re.compile(r"<[^>]+>")
+# The printed edition's footnotes are the modern editors' notes, not the author's words; the dump
+# keeps them in their own block on each page, so they can be left out exactly.
+_FOOTNOTES = re.compile(r'<div class="foot-notes">.*?</div>', re.S | re.I)
+FOOTNOTES_NOTE = "دون حواشي محقق الطبعة، فهي من كلام المحقق لا من كلام المؤلف"
 _BLANKS = re.compile(r"[ \t\r\f\v]+")
 MAX_CHUNK = 1200
 
@@ -90,8 +94,11 @@ ASBAB_NOTE = "يجمع روايات أسباب النزول الواردة في 
 
 
 def build_tafsir(tafsir_dump: dict, surah_names: dict[int, str],
-                 keywords: dict[str, str], kind: str = "tafsir", note: str = "") -> tuple[dict, list[dict]]:
-    """Source record and passages for one Quranpedia book dump keyed by ayah (tafsir or asbab)."""
+                 keywords: dict[str, str], kind: str = "tafsir", note: str = "",
+                 drop_footnotes: bool = False) -> tuple[dict, list[dict]]:
+    """Source record and passages for one Quranpedia book dump keyed by ayah (tafsir or asbab).
+    With drop_footnotes, the edition's footnote block on each page is left out, so every passage
+    is the author's own words."""
     book, version = tafsir_dump.get("book", {}), tafsir_dump.get("license", {}).get("version", "")
     if not book.get("id") or not version:
         raise ImportError_(f"{kind} dump has no book id or licence version")
@@ -111,6 +118,8 @@ def build_tafsir(tafsir_dump: dict, surah_names: dict[int, str],
         surah, ayah = int(row["surah"]), int(row["ayah"])
         for part in row.get("content", []):
             text = part.get("text", "")
+            if drop_footnotes:
+                text = _FOOTNOTES.sub("", text)
             if not text.strip():
                 continue
             g = groups.setdefault(text, {"surah": surah, "ayahs": [], "part": part.get("part"),
@@ -175,7 +184,8 @@ def build_corpus(dump: dict, expected_surahs: int = EXPECTED_SURAHS,
     names = {int(s["id"]): s["name"] for s in surahs}
     tafsir_version = asbab_version = ""
     if tafsir_dump:
-        tafsir_source, tafsir_passages = build_tafsir(tafsir_dump, names, keywords)
+        tafsir_source, tafsir_passages = build_tafsir(tafsir_dump, names, keywords,
+                                                      note=FOOTNOTES_NOTE, drop_footnotes=True)
         sources.append(tafsir_source)
         passages.extend(tafsir_passages)
         tafsir_version = tafsir_dump["license"]["version"]

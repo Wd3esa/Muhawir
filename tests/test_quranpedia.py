@@ -117,3 +117,21 @@ def test_asbab_book_is_imported_as_its_own_kind():
     assert "الكتب التسعة" in about and "دراسة المؤلف" in about and "2026-08-10" in about
     assert [p.kind for p in corpus.passages].count("tafsir") == 1  # tafsir ids unchanged
     assert any(p.id.startswith("t4:") for p in corpus.passages)
+
+
+def test_editor_footnotes_are_left_out_of_the_tafsir_and_the_author_text_is_kept():
+    page = ('قال أبو جعفر: كلام المؤلف (١).<br />وكلام آخر للمؤلف.<br />'
+            '<div class="foot-notes">(١) في المطبوعة: "كذا".<br />بيت شعر في الحاشية</div>')
+    tafsir = {"license": {"version": "2026-08-10"},
+              "book": {"id": 4, "name": "تفسير", "author": {"ar_name": "مفسر"}},
+              "ayahs": [{"surah": 1, "ayah": 1, "content": [{"text": page, "part": 1, "page": 1}]}]}
+    asbab = {"license": {"version": "2026-08-10"},
+             "book": {"id": 460, "name": "الأسباب", "author": {"ar_name": "مؤلف"}},
+             "ayahs": [{"surah": 1, "ayah": 1, "content": [{"text": page, "part": 1, "page": 1}]}]}
+    corpus = parse_corpus(build_corpus(_dump(), expected_surahs=1, expected_ayahs=2,
+                                       tafsir_dump=tafsir, asbab_dump=asbab))
+    [t] = [p for p in corpus.passages if p.kind == "tafsir"]
+    assert t.text == "قال أبو جعفر: كلام المؤلف (١).\nوكلام آخر للمؤلف."  # the author's words, unchanged
+    assert "حواشي محقق الطبعة" in corpus.sources["quranpedia-tafsir-4"].about
+    [a] = [p for p in corpus.passages if p.kind == "asbab"]
+    assert "في المطبوعة" in a.text  # only the tafsir edition's notes are left out
