@@ -30,6 +30,7 @@
 | البيانات | الاستخدام | الترخيص | الرابط |
 |---|---|---|---|
 | hadith-api (fawazahmed0)، الملفان ara-bukhari وara-muslim | نص صحيح البخاري وصحيح مسلم بالعربية | The Unlicense (ملكية عامة) | https://github.com/fawazahmed0/hadith-api |
+| OpenITI (KITAB)، نسخة «بداية المجتهد» Shamela0021739 | نص «بداية المجتهد» لابن رشد (الفقه المقارن) | CC BY-NC-SA 4.0: استعمال غير تجاري مع ذكر المصدر، ويُنشر ما يُشتق من البيانات نفسها بالرخصة ذاتها. يُذكر: Nigst, Romanov, Savant, Seydi, Verkinderen, OpenITI 2025.1.9, DOI 10.5281/zenodo.17767721. لا يُحفظ النص في المستودع، بل يُنزَّل عند بناء البيانات | https://github.com/OpenITI/0600AH |
 
 ## ترخيص شيفرة الفريق
 
